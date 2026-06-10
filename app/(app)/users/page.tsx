@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/db";
+import { asc } from "drizzle-orm";
+import { db, users } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { getT, type TKey } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
@@ -13,7 +14,9 @@ export default async function UsersPage({
   const { t, lang } = await getT();
   const { error, created } = await searchParams;
 
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
+  const usersList = await db.query.users.findMany({
+    orderBy: asc(users.createdAt),
+  });
 
   const inputCls =
     "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
@@ -51,7 +54,7 @@ export default async function UsersPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map((user) => (
+            {usersList.map((user) => (
               <tr key={user.id}>
                 <td className="px-5 py-3 font-medium">
                   {user.name}

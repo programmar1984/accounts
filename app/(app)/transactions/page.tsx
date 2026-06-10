@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { and, desc, eq, gte, like, lt, min, or, sum } from "drizzle-orm";
+import { db, transactions } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { getT, type TKey } from "@/lib/i18n";
 import { formatDate, formatYen } from "@/lib/format";
@@ -23,34 +24,38 @@ export default async function TransactionsPage({
     : undefined;
   const q = (params.q ?? "").trim();
 
-  const where = {
-    date: {
-      gte: new Date(Date.UTC(year, 0, 1)),
-      lt: new Date(Date.UTC(year + 1, 0, 1)),
-    },
-    ...(type ? { type } : {}),
-    ...(q
-      ? {
-          OR: [
-            { counterparty: { contains: q } },
-            { description: { contains: q } },
-            { memo: { contains: q } },
-          ],
-        }
-      : {}),
-  };
+  const conditions = [
+    gte(transactions.date, new Date(Date.UTC(year, 0, 1))),
+    lt(transactions.date, new Date(Date.UTC(year + 1, 0, 1))),
+  ];
+  if (type) conditions.push(eq(transactions.type, type));
+  if (q) {
+    conditions.push(
+      or(
+        like(transactions.counterparty, `%${q}%`),
+        like(transactions.description, `%${q}%`),
+        like(transactions.memo, `%${q}%`)
+      )!
+    );
+  }
+  const where = and(...conditions);
 
-  const [transactions, totals, oldest] = await Promise.all([
-    prisma.transaction.findMany({
+  const [transactionRows, [totals], [oldest]] = await Promise.all([
+    db.query.transactions.findMany({
       where,
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { _count: { select: { attachments: true } } },
+      orderBy: [desc(transactions.date), desc(transactions.createdAt)],
+      with: { attachments: { columns: { id: true } } },
     }),
-    prisma.transaction.aggregate({ where, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ _min: { date: true } }),
+    db.select({ total: sum(transactions.amount) }).from(transactions).where(where),
+    db.select({ minDate: min(transactions.date) }).from(transactions),
   ]);
 
-  const firstYear = oldest._min.date?.getUTCFullYear() ?? currentYear;
+  const transactionsList = transactionRows.map((tx) => ({
+    ...tx,
+    _count: { attachments: tx.attachments.length },
+  }));
+
+  const firstYear = oldest.minDate?.getUTCFullYear() ?? currentYear;
   const years: number[] = [];
   for (let y = currentYear + 1; y >= Math.min(firstYear, currentYear - 10); y--) {
     years.push(y);
@@ -111,7 +116,7 @@ export default async function TransactionsPage({
       </form>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {transactions.length === 0 ? (
+        {transactionsList.length === 0 ? (
           <div className="px-5 py-12 text-center text-sm text-slate-500">
             {t("tx.empty")}
           </div>
@@ -128,7 +133,7 @@ export default async function TransactionsPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {transactions.map((tx) => (
+              {transactionsList.map((tx) => (
                 <tr key={tx.id} className="group hover:bg-slate-50">
                   <td className="px-5 py-3 tabular-nums text-slate-500">
                     <Link href={`/transactions/${tx.id}`} className="block">
@@ -161,10 +166,10 @@ export default async function TransactionsPage({
             <tfoot>
               <tr className="border-t border-slate-200 bg-slate-50">
                 <td colSpan={5} className="px-5 py-3 text-right text-slate-500">
-                  {t("tx.total")} ({transactions.length})
+                  {t("tx.total")} ({transactionsList.length})
                 </td>
                 <td className="px-5 py-3 text-right font-bold tabular-nums">
-                  {formatYen(totals._sum.amount ?? 0, lang)}
+                  {formatYen(Number(totals.total ?? 0), lang)}
                 </td>
               </tr>
             </tfoot>

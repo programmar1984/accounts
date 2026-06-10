@@ -3,9 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
-import { prisma } from "./db";
+import { eq } from "drizzle-orm";
+import { attachments, db, transactions, users } from "./db";
 import { createSession, destroySession, requireAdmin, requireUser } from "./auth";
 import { deleteUpload, isAllowedMimeType, MAX_FILE_SIZE, saveUpload } from "./files";
+import { createId } from "./id";
 
 // ---------- auth ----------
 
@@ -13,7 +15,7 @@ export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await db.query.users.findFirst({ where: eq(users.email, email) });
   if (!user || !user.active || !(await bcrypt.compare(password, user.passwordHash))) {
     redirect("/login?error=1");
   }
@@ -74,8 +76,11 @@ async function saveAttachmentsFromForm(
 
   for (const file of files) {
     const saved = await saveUpload(file);
-    await prisma.attachment.create({
-      data: { ...saved, transactionId, uploadedById: userId },
+    await db.insert(attachments).values({
+      id: createId(),
+      ...saved,
+      transactionId,
+      uploadedById: userId,
     });
   }
   return null;
@@ -86,9 +91,10 @@ export async function createTransaction(formData: FormData) {
   const { valid, data } = parseTransactionForm(formData);
   if (!valid) redirect("/transactions/new?error=required");
 
-  const tx = await prisma.transaction.create({
-    data: { ...data, createdById: session.userId },
-  });
+  const [tx] = await db
+    .insert(transactions)
+    .values({ id: createId(), ...data, createdById: session.userId })
+    .returning();
 
   const fileError = await saveAttachmentsFromForm(formData, tx.id, session.userId);
   revalidatePath("/transactions");
@@ -102,7 +108,10 @@ export async function updateTransaction(formData: FormData) {
   const { valid, data } = parseTransactionForm(formData);
   if (!valid) redirect(`/transactions/${id}?error=required`);
 
-  await prisma.transaction.update({ where: { id }, data });
+  await db
+    .update(transactions)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(transactions.id, id));
   revalidatePath("/transactions");
   revalidatePath("/");
   redirect(`/transactions/${id}?saved=1`);
@@ -112,11 +121,12 @@ export async function deleteTransaction(formData: FormData) {
   await requireUser();
   const id = String(formData.get("id") ?? "");
 
-  const attachments = await prisma.attachment.findMany({
-    where: { transactionId: id },
-  });
-  await prisma.transaction.delete({ where: { id } });
-  for (const attachment of attachments) {
+  const txAttachments = await db
+    .select()
+    .from(attachments)
+    .where(eq(attachments.transactionId, id));
+  await db.delete(transactions).where(eq(transactions.id, id));
+  for (const attachment of txAttachments) {
     await deleteUpload(attachment.storedName);
   }
 
@@ -131,7 +141,9 @@ export async function addAttachments(formData: FormData) {
   const session = await requireUser();
   const transactionId = String(formData.get("transactionId") ?? "");
 
-  const tx = await prisma.transaction.findUnique({ where: { id: transactionId } });
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.id, transactionId),
+  });
   if (!tx) redirect("/transactions");
 
   const fileError = await saveAttachmentsFromForm(
@@ -147,10 +159,12 @@ export async function deleteAttachment(formData: FormData) {
   await requireUser();
   const id = String(formData.get("id") ?? "");
 
-  const attachment = await prisma.attachment.findUnique({ where: { id } });
+  const attachment = await db.query.attachments.findFirst({
+    where: eq(attachments.id, id),
+  });
   if (!attachment) return;
 
-  await prisma.attachment.delete({ where: { id } });
+  await db.delete(attachments).where(eq(attachments.id, id));
   await deleteUpload(attachment.storedName);
 
   revalidatePath(`/transactions/${attachment.transactionId}`);
@@ -171,11 +185,11 @@ export async function createUser(formData: FormData) {
     redirect("/users?error=required");
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
   if (existing) redirect("/users?error=exists");
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.create({ data: { name, email, passwordHash, role } });
+  await db.insert(users).values({ id: createId(), name, email, passwordHash, role });
 
   revalidatePath("/users");
   redirect("/users?created=1");
@@ -188,7 +202,7 @@ export async function setUserActive(formData: FormData) {
 
   if (id === session.userId) redirect("/users"); // cannot deactivate yourself
 
-  await prisma.user.update({ where: { id }, data: { active } });
+  await db.update(users).set({ active }).where(eq(users.id, id));
   revalidatePath("/users");
   redirect("/users");
 }

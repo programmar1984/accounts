@@ -15,16 +15,22 @@ The long-term product vision (compliance engine, year-end closing, tax output) i
 ## Stack
 
 - Next.js (App Router, server actions) + TypeScript + Tailwind CSS
-- Prisma ORM + SQLite (file DB — zero-setup for the MVP; the schema is portable to PostgreSQL, the target for multi-tenant SaaS)
+- Drizzle ORM + PostgreSQL (local dev; same engine as the target multi-tenant SaaS)
 - Local `uploads/` directory for files (S3-compatible storage later)
 
 ## Getting started
 
+**Prerequisites:** PostgreSQL running locally (default `localhost:5432`).
+
 ```bash
 npm install
-cp .env.example .env          # adjust AUTH_SECRET; optionally SEED_ADMIN_* vars
-npx prisma migrate dev        # creates prisma/dev.db and applies migrations
-npx prisma db seed            # seeds the admin user
+cp .env.example .env          # adjust DATABASE_URL and AUTH_SECRET; optionally SEED_ADMIN_* vars
+
+# Create the database once (psql or any client):
+#   CREATE DATABASE shime;
+
+npm run db:migrate            # apply migrations
+npm run db:seed               # seeds the admin user
 npm run dev                   # http://localhost:3000
 ```
 
@@ -36,6 +42,20 @@ Default seeded admin (override with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` /
 
 Change the password/secret before deploying anywhere public.
 
+## Database (Drizzle ORM)
+
+Schema lives in `lib/db/schema.ts`. Migrations are generated and applied with [Drizzle Kit](https://orm.drizzle.team/):
+
+| Command | Purpose |
+|---|---|
+| `npm run db:migrate` | Apply migrations to PostgreSQL |
+| `npm run db:seed` | Seed the admin user |
+| `npm run db:generate` | Generate a migration after schema changes |
+| `npm run db:push` | Push schema directly (local dev only) |
+| `npm run db:studio` | Open Drizzle Studio |
+
+`DATABASE_URL` in `.env` defaults to `postgresql://postgres:ammars@localhost:5432/shime`.
+
 ## Project structure
 
 ```
@@ -44,8 +64,11 @@ app/                  Next.js routes
   (app)/              authenticated area: dashboard, transactions, users
   api/files/[id]/     auth-gated attachment serving
 components/           shared UI components
-lib/                  db client, auth/session, i18n dictionaries, server actions, file storage
-prisma/               schema, migrations, seed script
+lib/                  auth/session, i18n dictionaries, server actions, file storage
+  db/                 Drizzle schema (`schema.ts`)
+  db.ts               Drizzle client (postgres.js)
+drizzle/              SQL migrations & seed script
+drizzle.config.ts     Drizzle Kit config
 docs/                 research & requirements (full platform vision)
 uploads/              uploaded receipt/invoice files (gitignored)
 ```

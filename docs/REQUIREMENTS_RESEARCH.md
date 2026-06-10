@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Document status** | Research / Pre-development (no code initiated) |
+| **Document status** | Research + MVP-0 implemented (Drizzle ORM + PostgreSQL) |
 | **Regulatory baseline** | Japanese tax & commercial law as understood for fiscal years beginning in 2025–2026 (Reiwa 7–8). All statutory parameters must be re-verified against the annual Tax Reform (税制改正) before each release. |
 | **Audience** | Product, engineering, and compliance teams; reviewing Zeirishi advisors |
 | **Languages of the product** | Japanese (primary, statutory) + English (full UI/report parity) |
@@ -858,7 +858,7 @@ The smallest useful system, dogfooded on the founder's own business before any c
 - **Transactions** for the entire year: type (sale 売上 / purchase 仕入 / expense 経費), date, counterparty, description, integer-JPY amount, memo; year/type filters, search, yearly totals dashboard.
 - **Receipts & invoices uploaded against each transaction** (images/PDF), auth-gated viewing/download — the seed of the future Denchōhō document vault.
 - Bilingual UI (EN/JA) from day one.
-- Stack (intentionally lighter than the target architecture, but on the migration path): Next.js + TypeScript + Prisma; SQLite locally (schema portable to PostgreSQL); local file storage (→ S3/WORM later).
+- Stack (intentionally lighter than the target architecture, but on the migration path): Next.js + TypeScript + Drizzle ORM + PostgreSQL locally; local file storage (→ S3/WORM later).
 
 Exit criteria: a full year of the founder's real transactions entered with documents attached; second user onboarded by the admin.
 
@@ -972,7 +972,7 @@ Exit criteria (M3): ≥ 10 real companies' fiscal years closed in SHIME and file
 
 ---
 
-*End of research deliverable. No project code has been initiated, per instructions. Next action upon approval: Phase 0 kickoff (data-model & tax-engine specification sprints with design-partner Zeirishi).*
+*End of research deliverable. MVP-0 (Phase 0a) is built on Next.js + Drizzle ORM + PostgreSQL. Next action: Phase 0b foundation & compliance design (data-model & tax-engine specification sprints with design-partner Zeirishi).*
 
 
 

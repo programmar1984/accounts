@@ -1,12 +1,22 @@
-import { PrismaClient } from "./generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./db/schema";
 
-const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+const url =
+  process.env.DATABASE_URL ??
+  "postgresql://postgres:ammars@localhost:5432/shime";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForDb = globalThis as unknown as {
+  sql?: ReturnType<typeof postgres>;
+  db?: ReturnType<typeof drizzle<typeof schema>>;
+};
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
+const sql = globalForDb.sql ?? postgres(url);
+export const db = globalForDb.db ?? drizzle(sql, { schema });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForDb.sql = sql;
+  globalForDb.db = db;
+}
+
+export * from "./db/schema";

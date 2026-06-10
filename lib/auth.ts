@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
-import { prisma } from "./db";
+import { eq } from "drizzle-orm";
+import { db, users } from "./db";
 
 const secret = new TextEncoder().encode(
   process.env.AUTH_SECRET ?? "dev-secret-change-me"
@@ -55,7 +56,7 @@ export async function getSession(): Promise<Session | null> {
 export async function getActiveSession(): Promise<Session | null> {
   const session = await getSession();
   if (!session) return null;
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  const user = await db.query.users.findFirst({ where: eq(users.id, session.userId) });
   if (!user || !user.active) return null;
   return { userId: user.id, role: user.role, name: user.name, email: user.email };
 }

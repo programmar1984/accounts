@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { asc, eq } from "drizzle-orm";
+import { attachments, db, transactions } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { getT, type TKey } from "@/lib/i18n";
 import { formatBytes, formatDate } from "@/lib/format";
@@ -26,11 +27,11 @@ export default async function TransactionDetailPage({
   const { id } = await params;
   const { error, saved } = await searchParams;
 
-  const tx = await prisma.transaction.findUnique({
-    where: { id },
-    include: {
-      attachments: { orderBy: { createdAt: "asc" } },
-      createdBy: { select: { name: true } },
+  const tx = await db.query.transactions.findFirst({
+    where: eq(transactions.id, id),
+    with: {
+      attachments: { orderBy: asc(attachments.createdAt) },
+      createdBy: { columns: { name: true } },
     },
   });
   if (!tx) notFound();

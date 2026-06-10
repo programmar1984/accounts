@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
-import { prisma } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { attachments, db } from "@/lib/db";
 import { getActiveSession } from "@/lib/auth";
 import { UPLOAD_DIR } from "@/lib/files";
 
@@ -14,7 +15,9 @@ export async function GET(
   }
 
   const { id } = await params;
-  const attachment = await prisma.attachment.findUnique({ where: { id } });
+  const attachment = await db.query.attachments.findFirst({
+    where: eq(attachments.id, id),
+  });
   if (!attachment) {
     return new Response("Not found", { status: 404 });
   }

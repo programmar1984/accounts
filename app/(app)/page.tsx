@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { and, asc, count, desc, eq, gte, lt, min, sum } from "drizzle-orm";
+import { db, transactions } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { formatDate, formatYen } from "@/lib/format";
@@ -7,10 +8,10 @@ import { TypeBadge } from "@/components/TypeBadge";
 import type { TKey } from "@/lib/i18n";
 
 function yearRange(year: number) {
-  return {
-    gte: new Date(Date.UTC(year, 0, 1)),
-    lt: new Date(Date.UTC(year + 1, 0, 1)),
-  };
+  return and(
+    gte(transactions.date, new Date(Date.UTC(year, 0, 1))),
+    lt(transactions.date, new Date(Date.UTC(year + 1, 0, 1)))
+  );
 }
 
 export default async function DashboardPage({
@@ -24,31 +25,40 @@ export default async function DashboardPage({
   const currentYear = new Date().getUTCFullYear();
   const params = await searchParams;
   const year = Number(params.year) || currentYear;
+  const yearWhere = yearRange(year);
 
-  const [grouped, count, recent, oldest] = await Promise.all([
-    prisma.transaction.groupBy({
-      by: ["type"],
-      where: { date: yearRange(year) },
-      _sum: { amount: true },
+  const [grouped, [{ value: txCount }], recentRows, [oldest]] = await Promise.all([
+    db
+      .select({
+        type: transactions.type,
+        total: sum(transactions.amount),
+      })
+      .from(transactions)
+      .where(yearWhere)
+      .groupBy(transactions.type),
+    db.select({ value: count() }).from(transactions).where(yearWhere),
+    db.query.transactions.findMany({
+      where: yearWhere,
+      orderBy: [desc(transactions.date), desc(transactions.createdAt)],
+      limit: 6,
+      with: { attachments: { columns: { id: true } } },
     }),
-    prisma.transaction.count({ where: { date: yearRange(year) } }),
-    prisma.transaction.findMany({
-      where: { date: yearRange(year) },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      take: 6,
-      include: { _count: { select: { attachments: true } } },
-    }),
-    prisma.transaction.aggregate({ _min: { date: true } }),
+    db.select({ minDate: min(transactions.date) }).from(transactions),
   ]);
 
+  const recent = recentRows.map((tx) => ({
+    ...tx,
+    _count: { attachments: tx.attachments.length },
+  }));
+
   const sums: Record<string, number> = {};
-  for (const g of grouped) sums[g.type] = g._sum.amount ?? 0;
+  for (const g of grouped) sums[g.type] = Number(g.total ?? 0);
   const sales = sums.SALE ?? 0;
   const purchases = sums.PURCHASE ?? 0;
   const expenses = sums.EXPENSE ?? 0;
   const net = sales - purchases - expenses;
 
-  const firstYear = oldest._min.date?.getUTCFullYear() ?? currentYear;
+  const firstYear = oldest.minDate?.getUTCFullYear() ?? currentYear;
   const years: number[] = [];
   for (let y = Math.max(firstYear, currentYear - 10); y <= currentYear + 1; y++) {
     years.push(y);
@@ -108,7 +118,7 @@ export default async function DashboardPage({
           <h2 className="font-semibold">
             {t("dashboard.recent")}{" "}
             <span className="ml-1 text-sm font-normal text-slate-400">
-              {count} {t("dashboard.count")}
+              {txCount} {t("dashboard.count")}
             </span>
           </h2>
           <Link
