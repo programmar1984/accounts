@@ -1,17 +1,31 @@
-const STYLES: Record<string, string> = {
-  SALE: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  PURCHASE: "bg-sky-50 text-sky-700 ring-sky-600/20",
-  EXPENSE: "bg-rose-50 text-rose-700 ring-rose-600/20",
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+
+const VARIANTS: Record<string, BadgeVariant> = {
+  SALE: "success",
+  PURCHASE: "info",
+  EXPENSE: "warning",
 };
 
 export function TypeBadge({ type, label }: { type: string; label: string }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-        STYLES[type] ?? "bg-slate-50 text-slate-700 ring-slate-600/20"
-      }`}
-    >
-      {label}
-    </span>
-  );
+  return <Badge variant={VARIANTS[type] ?? "secondary"}>{label}</Badge>;
+}
+
+export function paymentBadgeVariant(status: string): BadgeVariant {
+  if (status === "PAID") return "success";
+  if (status === "PARTIAL") return "warning";
+  if (status === "UNPAID") return "danger";
+  return "secondary";
+}
+
+export function poBadgeVariant(status: string): BadgeVariant {
+  if (status === "POSTED") return "success";
+  if (status === "VOID") return "danger";
+  if (status === "CANCELLED") return "danger";
+  return "secondary";
+}
+
+export function expenseBadgeVariant(status: string): BadgeVariant {
+  if (status === "POSTED") return "success";
+  if (status === "VOID") return "danger";
+  return "secondary";
 }

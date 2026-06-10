@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getLang } from "@/lib/i18n";
+import { themeCookieScript } from "@/lib/theme";
+import { getTheme } from "@/lib/theme-server";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,12 +28,22 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const lang = await getLang();
+  const theme = await getTheme();
   return (
     <html
       lang={lang}
+      data-theme={theme}
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        <Script id="shime-theme-init" strategy="beforeInteractive">
+          {themeCookieScript()}
+        </Script>
+      </head>
+      <body className="app-shell">
+        <ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

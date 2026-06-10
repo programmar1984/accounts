@@ -4,6 +4,11 @@ import { db, suppliers } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { setSupplierActive } from "@/lib/actions-counterparties";
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { DataTable } from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/Badge";
 
 export default async function SuppliersPage({
   searchParams,
@@ -17,72 +22,61 @@ export default async function SuppliersPage({
   const list = await db.query.suppliers.findMany({ orderBy: asc(suppliers.name) });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{t("supp.title")}</h1>
-        <Link
-          href="/suppliers/new"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          + {t("supp.new")}
-        </Link>
-      </div>
+    <div className="stack-lg">
+      <PageToolbar
+        title={t("supp.title")}
+        actions={
+          <ButtonLink href="/suppliers/new" variant="primary">
+            + {t("supp.new")}
+          </ButtonLink>
+        }
+      />
 
-      {created && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {t("supp.created")}
-        </p>
-      )}
+      {created && <Alert variant="success">{t("supp.created")}</Alert>}
       {error === "required" && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {t("supp.error.required")}
-        </p>
+        <Alert variant="danger">{t("supp.error.required")}</Alert>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {list.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-slate-500">{t("supp.empty")}</div>
-        ) : (
-          <table className="w-full text-sm">
+      <DataTable
+        empty={
+          list.length === 0 ? (
+            <div className="empty-state">{t("supp.empty")}</div>
+          ) : undefined
+        }
+      >
+        {list.length > 0 ? (
+          <>
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-5 py-3 font-medium">{t("supp.name")}</th>
-                <th className="px-3 py-3 font-medium">{t("supp.code")}</th>
-                <th className="px-3 py-3 font-medium">{t("supp.email")}</th>
-                <th className="px-3 py-3 font-medium">{t("supp.status")}</th>
-                <th className="px-5 py-3" />
+              <tr>
+                <th>{t("supp.name")}</th>
+                <th>{t("supp.code")}</th>
+                <th>{t("supp.email")}</th>
+                <th>{t("supp.status")}</th>
+                <th />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {list.map((s) => (
                 <tr key={s.id}>
-                  <td className="px-5 py-3 font-medium">
-                    <Link href={`/suppliers/${s.id}`} className="hover:underline">
+                  <td style={{ fontWeight: 600 }}>
+                    <Link href={`/suppliers/${s.id}`} className="data-row-link">
                       {s.name}
                     </Link>
                   </td>
-                  <td className="px-3 py-3 text-slate-500">{s.code ?? "—"}</td>
-                  <td className="px-3 py-3 text-slate-500">{s.email ?? "—"}</td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                        s.active
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-                          : "bg-slate-100 text-slate-500 ring-slate-400/20"
-                      }`}
-                    >
+                  <td className="muted">{s.code ?? "—"}</td>
+                  <td className="muted">{s.email ?? "—"}</td>
+                  <td>
+                    <Badge variant={s.active ? "success" : "secondary"}>
                       {s.active ? t("supp.active") : t("supp.inactive")}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="text-right">
                     <form action={setSupplierActive}>
                       <input type="hidden" name="id" value={s.id} />
                       <input type="hidden" name="active" value={s.active ? "false" : "true"} />
                       <button
                         type="submit"
-                        className={`text-sm underline-offset-2 hover:underline ${
-                          s.active ? "text-rose-600" : "text-emerald-700"
-                        }`}
+                        className={`btn-link ${s.active ? "danger" : ""}`}
                       >
                         {s.active ? t("supp.deactivate") : t("supp.activate")}
                       </button>
@@ -91,9 +85,9 @@ export default async function SuppliersPage({
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
+          </>
+        ) : null}
+      </DataTable>
     </div>
   );
 }

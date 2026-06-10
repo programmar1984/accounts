@@ -1,18 +1,15 @@
 import Link from "next/link";
-import { and, asc, count, desc, eq, gte, lt, min, sum } from "drizzle-orm";
-import { db, transactions } from "@shime/db";
 import { requireUser } from "@/lib/auth";
-import { getT } from "@/lib/i18n";
+import { getCompanySettings } from "@/lib/company-settings";
+import { fetchLedgerEntries, sumLedgerAmounts, sumLedgerTax } from "@/lib/ledger";
+import { getT, type TKey } from "@/lib/i18n";
 import { formatDate, formatYen } from "@shime/shared";
-import { TypeBadge } from "@/components/TypeBadge";
-import type { TKey } from "@/lib/i18n";
-
-function yearRange(year: number) {
-  return and(
-    gte(transactions.date, new Date(Date.UTC(year, 0, 1))),
-    lt(transactions.date, new Date(Date.UTC(year + 1, 0, 1)))
-  );
-}
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { paymentBadgeVariant } from "@/components/TypeBadge";
 
 export default async function DashboardPage({
   searchParams,
@@ -21,155 +18,162 @@ export default async function DashboardPage({
 }) {
   await requireUser();
   const { t, lang } = await getT();
+  const settings = await getCompanySettings();
 
   const currentYear = new Date().getUTCFullYear();
   const params = await searchParams;
   const year = Number(params.year) || currentYear;
-  const yearWhere = yearRange(year);
 
-  const [grouped, [{ value: txCount }], recentRows, [oldest]] = await Promise.all([
-    db
-      .select({
-        type: transactions.type,
-        total: sum(transactions.amount),
-      })
-      .from(transactions)
-      .where(yearWhere)
-      .groupBy(transactions.type),
-    db.select({ value: count() }).from(transactions).where(yearWhere),
-    db.query.transactions.findMany({
-      where: yearWhere,
-      orderBy: [desc(transactions.date), desc(transactions.createdAt)],
-      limit: 6,
-      with: { attachments: { columns: { id: true } } },
-    }),
-    db.select({ minDate: min(transactions.date) }).from(transactions),
+  const [amounts, tax, recent] = await Promise.all([
+    sumLedgerAmounts(year),
+    sumLedgerTax(year),
+    fetchLedgerEntries({ year }),
   ]);
 
-  const recent = recentRows.map((tx) => ({
-    ...tx,
-    _count: { attachments: tx.attachments.length },
-  }));
-
-  const sums: Record<string, number> = {};
-  for (const g of grouped) sums[g.type] = Number(g.total ?? 0);
-  const sales = sums.SALE ?? 0;
-  const purchases = sums.PURCHASE ?? 0;
-  const expenses = sums.EXPENSE ?? 0;
-  const net = sales - purchases - expenses;
-
-  const firstYear = oldest.minDate?.getUTCFullYear() ?? currentYear;
+  const recentEntries = recent.slice(0, 6);
   const years: number[] = [];
-  for (let y = Math.max(firstYear, currentYear - 10); y <= currentYear + 1; y++) {
+  for (let y = currentYear - 10; y <= currentYear + 1; y++) {
     years.push(y);
   }
 
   const cards: { label: TKey; value: number; accent: string }[] = [
-    { label: "dashboard.sales", value: sales, accent: "text-emerald-700" },
-    { label: "dashboard.purchases", value: purchases, accent: "text-sky-700" },
-    { label: "dashboard.expenses", value: expenses, accent: "text-rose-700" },
+    { label: "dashboard.sales", value: amounts.sales, accent: "metric-value--success" },
+    { label: "dashboard.purchases", value: amounts.purchases, accent: "metric-value--info" },
+    { label: "dashboard.expenses", value: amounts.expenses, accent: "metric-value--warning" },
     {
       label: "dashboard.net",
-      value: net,
-      accent: net >= 0 ? "text-slate-900" : "text-rose-700",
+      value: amounts.net,
+      accent: amounts.net >= 0 ? "metric-value--primary" : "metric-value--danger",
     },
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{t("dashboard.title")}</h1>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">{t("dashboard.year")}:</span>
-          <div className="flex gap-1">
-            {years.map((y) => (
-              <Link
-                key={y}
-                href={`/?year=${y}`}
-                className={`rounded-lg px-3 py-1.5 font-medium ${
-                  y === year
-                    ? "bg-slate-900 text-white"
-                    : "border border-slate-300 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {y}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <div className="text-sm text-slate-500">{t(card.label)}</div>
-            <div className={`mt-1 text-2xl font-bold tabular-nums ${card.accent}`}>
-              {formatYen(card.value, lang)}
+    <div className="stack-lg">
+      <PageToolbar
+        title={t("dashboard.title")}
+        actions={
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span className="muted" style={{ fontSize: "0.88rem" }}>
+              {t("dashboard.year")}:
+            </span>
+            <div className="year-pills">
+              {years.map((y) => (
+                <Link
+                  key={y}
+                  href={`/?year=${y}`}
+                  className={`year-pill${y === year ? " year-pill--active" : ""}`}
+                >
+                  {y}
+                </Link>
+              ))}
             </div>
           </div>
+        }
+      />
+
+      <div className="metrics-grid">
+        {cards.map((card) => (
+          <Card key={card.label}>
+            <CardBody>
+              <div className="muted" style={{ fontSize: "0.88rem" }}>
+                {t(card.label)}
+              </div>
+              <div className={`metric-value ${card.accent}`}>
+                {formatYen(card.value, lang)}
+              </div>
+            </CardBody>
+          </Card>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="font-semibold">
-            {t("dashboard.recent")}{" "}
-            <span className="ml-1 text-sm font-normal text-slate-400">
-              {txCount} {t("dashboard.count")}
-            </span>
-          </h2>
-          <Link
-            href={`/transactions?year=${year}`}
-            className="text-sm font-medium text-slate-600 underline-offset-2 hover:underline"
-          >
-            {t("dashboard.viewAll")} →
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-slate-500">
-            {t("dashboard.empty")}{" "}
-            <Link
-              href="/transactions/new"
-              className="font-medium text-slate-900 underline underline-offset-2"
-            >
-              {t("tx.new")}
-            </Link>
+      {settings.jctStatus === "TAXABLE" && (
+        <Card>
+          <CardHeader variant="info">{t("tax.jctSummary")}</CardHeader>
+          <CardBody>
+            <Alert variant="warning" className="mb-4">
+              {t("tax.draftDisclaimer")}
+            </Alert>
+            <div className="metrics-grid">
+              <div>
+                <div className="muted" style={{ fontSize: "0.88rem" }}>
+                  {t("tax.outputTax")}
+                </div>
+                <div className="metric-value metric-value--success">
+                  {formatYen(tax.outputTax, lang)}
+                </div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: "0.88rem" }}>
+                  {t("tax.inputTax")}
+                </div>
+                <div className="metric-value metric-value--info">
+                  {formatYen(tax.inputTax, lang)}
+                </div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: "0.88rem" }}>
+                  {t("tax.netJct")}
+                </div>
+                <div
+                  className={`metric-value ${tax.netJct >= 0 ? "metric-value--primary" : "metric-value--danger"}`}
+                >
+                  {formatYen(tax.netJct, lang)}
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader variant="primary">
+          {t("ledger.recent")}{" "}
+          <span style={{ fontWeight: 400, opacity: 0.85, fontSize: "0.88rem" }}>
+            {recent.length} {t("ledger.count")}
+          </span>
+        </CardHeader>
+        {recentEntries.length === 0 ? (
+          <div className="empty-state">
+            {t("ledger.empty")}{" "}
+            <ButtonLink href="/purchase-orders/new" variant="primary" size="sm">
+              {t("po.new")}
+            </ButtonLink>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-100">
-            {recent.map((tx) => (
-              <li key={tx.id}>
-                <Link
-                  href={`/transactions/${tx.id}`}
-                  className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50"
-                >
-                  <span className="w-24 shrink-0 text-sm tabular-nums text-slate-500">
-                    {formatDate(tx.date, lang)}
+          <ul className="list-divider" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {recentEntries.map((e) => (
+              <li key={`${e.docType}-${e.id}`}>
+                <Link href={e.href} className="list-row">
+                  <span className="tabular-nums muted" style={{ width: "6rem", flexShrink: 0 }}>
+                    {formatDate(e.date, lang)}
                   </span>
-                  <TypeBadge type={tx.type} label={t(`type.${tx.type}` as TKey)} />
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    <span className="font-medium">{tx.counterparty}</span>
-                    {tx.description && (
-                      <span className="text-slate-500"> — {tx.description}</span>
-                    )}
+                  <span className="muted" style={{ width: "2.5rem" }}>
+                    {t(`ledger.type.${e.docType}` as TKey)}
                   </span>
-                  {tx._count.attachments > 0 && (
-                    <span className="text-xs text-slate-400">
-                      📎{tx._count.attachments}
-                    </span>
-                  )}
-                  <span className="text-sm font-semibold tabular-nums">
-                    {formatYen(tx.amount, lang)}
+                  <span className="muted" style={{ width: "4rem" }}>
+                    {e.partyCode ?? "—"}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <strong>{e.partyName}</strong>
+                    <span className="muted"> · {e.number}</span>
+                  </span>
+                  <Badge variant={paymentBadgeVariant(e.paymentStatus)}>
+                    {t(`pay.${e.paymentStatus}` as TKey)}
+                  </Badge>
+                  <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                    {formatYen(e.totalAmount, lang)}
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
         )}
-      </div>
+        <div className="card-footer" style={{ textAlign: "right" }}>
+          <ButtonLink href={`/ledger?year=${year}`} variant="muted" size="sm">
+            {t("ledger.viewAll")} →
+          </ButtonLink>
+        </div>
+      </Card>
     </div>
   );
 }

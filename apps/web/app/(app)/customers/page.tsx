@@ -4,6 +4,11 @@ import { customers, db } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { setCustomerActive } from "@/lib/actions-counterparties";
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { DataTable } from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/Badge";
 
 export default async function CustomersPage({
   searchParams,
@@ -17,72 +22,61 @@ export default async function CustomersPage({
   const list = await db.query.customers.findMany({ orderBy: asc(customers.name) });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{t("cust.title")}</h1>
-        <Link
-          href="/customers/new"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          + {t("cust.new")}
-        </Link>
-      </div>
+    <div className="stack-lg">
+      <PageToolbar
+        title={t("cust.title")}
+        actions={
+          <ButtonLink href="/customers/new" variant="primary">
+            + {t("cust.new")}
+          </ButtonLink>
+        }
+      />
 
-      {created && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {t("cust.created")}
-        </p>
-      )}
+      {created && <Alert variant="success">{t("cust.created")}</Alert>}
       {error === "required" && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {t("cust.error.required")}
-        </p>
+        <Alert variant="danger">{t("cust.error.required")}</Alert>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {list.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-slate-500">{t("cust.empty")}</div>
-        ) : (
-          <table className="w-full text-sm">
+      <DataTable
+        empty={
+          list.length === 0 ? (
+            <div className="empty-state">{t("cust.empty")}</div>
+          ) : undefined
+        }
+      >
+        {list.length > 0 ? (
+          <>
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-5 py-3 font-medium">{t("cust.name")}</th>
-                <th className="px-3 py-3 font-medium">{t("cust.code")}</th>
-                <th className="px-3 py-3 font-medium">{t("cust.email")}</th>
-                <th className="px-3 py-3 font-medium">{t("cust.status")}</th>
-                <th className="px-5 py-3" />
+              <tr>
+                <th>{t("cust.name")}</th>
+                <th>{t("cust.code")}</th>
+                <th>{t("cust.email")}</th>
+                <th>{t("cust.status")}</th>
+                <th />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {list.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-5 py-3 font-medium">
-                    <Link href={`/customers/${c.id}`} className="hover:underline">
+                  <td style={{ fontWeight: 600 }}>
+                    <Link href={`/customers/${c.id}`} className="data-row-link">
                       {c.name}
                     </Link>
                   </td>
-                  <td className="px-3 py-3 text-slate-500">{c.code ?? "—"}</td>
-                  <td className="px-3 py-3 text-slate-500">{c.email ?? "—"}</td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                        c.active
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-                          : "bg-slate-100 text-slate-500 ring-slate-400/20"
-                      }`}
-                    >
+                  <td className="muted">{c.code ?? "—"}</td>
+                  <td className="muted">{c.email ?? "—"}</td>
+                  <td>
+                    <Badge variant={c.active ? "success" : "secondary"}>
                       {c.active ? t("cust.active") : t("cust.inactive")}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="text-right">
                     <form action={setCustomerActive}>
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="active" value={c.active ? "false" : "true"} />
                       <button
                         type="submit"
-                        className={`text-sm underline-offset-2 hover:underline ${
-                          c.active ? "text-rose-600" : "text-emerald-700"
-                        }`}
+                        className={`btn-link ${c.active ? "danger" : ""}`}
                       >
                         {c.active ? t("cust.deactivate") : t("cust.activate")}
                       </button>
@@ -91,9 +85,9 @@ export default async function CustomersPage({
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
+          </>
+        ) : null}
+      </DataTable>
     </div>
   );
 }

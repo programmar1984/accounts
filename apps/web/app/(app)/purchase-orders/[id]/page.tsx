@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, purchaseOrderLines, purchaseOrders } from "@shime/db";
@@ -9,12 +8,20 @@ import {
   addPurchaseOrderAttachments,
   cancelPurchaseOrder,
   deletePurchaseOrderAttachment,
-  recordPurchaseOrderReceipt,
-  sendPurchaseOrder,
+  postPurchaseOrder,
+  recordPoPayment,
   updatePurchaseOrder,
+  voidPurchaseOrder,
 } from "@/lib/actions-purchase-orders";
+import { getCompanySettings } from "@/lib/company-settings";
 import { LineItemsEditor } from "@/components/LineItemsEditor";
-import { canCancelPo, canReceivePo, canSendPo } from "@shime/shared";
+import { canCancelPo, canPostPo, canVoidPo, type TaxRate } from "@shime/shared";
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/Card";
+import { paymentBadgeVariant } from "@/components/TypeBadge";
 
 export default async function PurchaseOrderDetailPage({
   params,
@@ -23,15 +30,18 @@ export default async function PurchaseOrderDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     saved?: string;
-    sent?: string;
-    received?: string;
+    posted?: string;
+    payment?: string;
     error?: string;
   }>;
 }) {
   await requireUser();
   const { t, lang } = await getT();
   const { id } = await params;
-  const { saved, sent, received, error } = await searchParams;
+  const { saved, posted, payment, error } = await searchParams;
+
+  const settings = await getCompanySettings();
+  const taxable = settings.jctStatus === "TAXABLE";
 
   const po = await db.query.purchaseOrders.findFirst({
     where: eq(purchaseOrders.id, id),
@@ -44,209 +54,255 @@ export default async function PurchaseOrderDetailPage({
   if (!po) notFound();
 
   const isDraft = po.status === "DRAFT";
-  const inputCls =
-    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
+  const isPosted = po.status === "POSTED";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{po.number}</h1>
-          <p className="text-sm text-slate-500">
-            {t(`po.status.${po.status}` as TKey)} · {po.supplier.name}
-          </p>
-        </div>
-        <Link href="/purchase-orders" className="text-sm text-slate-500 hover:underline">
-          ← {t("po.title")}
-        </Link>
-      </div>
+    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+      <PageToolbar
+        title={po.number}
+        subtitle={`${t(`po.status.${po.status}` as TKey)} · ${po.supplier.name}${po.supplier.code ? ` (${po.supplier.code})` : ""}`}
+        actions={
+          <ButtonLink href="/purchase-orders" variant="muted" size="sm">
+            ← {t("po.title")}
+          </ButtonLink>
+        }
+      />
 
-      {saved && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {t("po.saved")}
-        </p>
-      )}
-      {sent && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {t("po.sent")}
-        </p>
-      )}
-      {received && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {t("po.received")}
-        </p>
-      )}
-      {error === "type" && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {t("attach.error.type")}
-        </p>
-      )}
-      {error === "size" && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {t("attach.error.size")}
-        </p>
+      {saved && <Alert variant="success">{t("po.saved")}</Alert>}
+      {posted && <Alert variant="success">{t("po.posted")}</Alert>}
+      {payment && <Alert variant="success">{t("po.paymentUpdated")}</Alert>}
+      {error === "payment" && <Alert variant="danger">{t("po.error.payment")}</Alert>}
+      {error === "type" && <Alert variant="danger">{t("attach.error.type")}</Alert>}
+      {error === "size" && <Alert variant="danger">{t("attach.error.size")}</Alert>}
+      {error === "required" && <Alert variant="danger">{t("po.error.required")}</Alert>}
+
+      {isPosted && (
+        <Card>
+          <CardBody>
+            <p>
+              <span className="muted">{t("po.paymentStatus")}: </span>
+              <Badge variant={paymentBadgeVariant(po.paymentStatus)}>
+                {t(`pay.${po.paymentStatus}` as TKey)}
+              </Badge>
+              <span className="muted" style={{ marginLeft: "1rem" }}>
+                {po.amountPaid} / {po.totalAmount} ¥
+              </span>
+            </p>
+          </CardBody>
+        </Card>
       )}
 
       {isDraft ? (
-        <form
-          action={updatePurchaseOrder}
-          className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <input type="hidden" name="id" value={po.id} />
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t("po.expectedDate")}</label>
-            <input
-              name="expectedDate"
-              type="date"
-              defaultValue={po.expectedDate?.toISOString().slice(0, 10) ?? ""}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">{t("po.lines")}</label>
-            <LineItemsEditor
-              defaults={po.lines.map((l) => ({
-                description: l.description,
-                quantity: l.quantity,
-                unitPrice: l.unitPrice,
-              }))}
-              labels={{
-                description: t("inv.lineDescription"),
-                quantity: t("inv.lineQty"),
-                unitPrice: t("inv.linePrice"),
-                add: t("inv.addLine"),
-                remove: t("inv.removeLine"),
-              }}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t("po.notes")}</label>
-            <textarea
-              name="notes"
-              rows={2}
-              defaultValue={po.notes ?? ""}
-              className={inputCls}
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            {t("inv.save")}
-          </button>
-        </form>
+        <Card>
+          <CardBody>
+            <form action={updatePurchaseOrder} className="stack">
+              <input type="hidden" name="id" value={po.id} />
+              <div className="form-grid form-grid-2">
+                <div className="form-group">
+                  <label className="form-label">{t("po.issueDate")}</label>
+                  <input
+                    name="issueDate"
+                    type="date"
+                    required
+                    defaultValue={po.issueDate.toISOString().slice(0, 10)}
+                    className="input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("po.dueDate")}</label>
+                  <input
+                    name="dueDate"
+                    type="date"
+                    defaultValue={po.dueDate?.toISOString().slice(0, 10) ?? ""}
+                    className="input"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t("po.lines")}</label>
+                <LineItemsEditor
+                  taxable={taxable}
+                  defaultTaxRate={settings.defaultTaxRate as TaxRate}
+                  unitPriceLabel={
+                    taxable && settings.priceBasis === "TAX_EXCLUSIVE"
+                      ? t("tax.exclusive")
+                      : taxable
+                        ? t("tax.inclusive")
+                        : t("line.unitPrice")
+                  }
+                  defaults={po.lines.map((l) => ({
+                    description: l.description,
+                    quantity: l.quantity,
+                    unitPrice: l.unitPrice,
+                    taxRate: l.taxRate as TaxRate,
+                  }))}
+                  labels={{
+                    description: t("line.description"),
+                    quantity: t("line.qty"),
+                    unitPrice: t("line.unitPrice"),
+                    taxRate: t("tax.rate"),
+                    rate10: t("tax.rate10"),
+                    rate8: t("tax.rate8"),
+                    rate0: t("tax.rate0"),
+                    add: t("line.add"),
+                    remove: t("line.remove"),
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t("po.notes")}</label>
+                <textarea name="notes" rows={2} defaultValue={po.notes ?? ""} className="textarea" />
+              </div>
+              <button type="submit" className="btn btn-primary">
+                {t("po.save")}
+              </button>
+            </form>
+          </CardBody>
+        </Card>
       ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <ul className="divide-y divide-slate-100">
-            {po.lines.map((l) => (
-              <li key={l.id} className="flex justify-between py-2 text-sm">
-                <span>
-                  {l.description} — {l.qtyReceived}/{l.quantity} {t("po.qtyReceived")}
-                </span>
-                <span className="font-medium tabular-nums">
-                  {formatYen(l.lineTotal, lang)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-right text-lg font-bold tabular-nums">
-            {formatYen(po.totalAmount, lang)}
-          </p>
-        </div>
+        <Card>
+          <CardBody>
+            <p className="muted">
+              {formatDate(po.issueDate, lang)}
+              {po.dueDate ? ` → ${formatDate(po.dueDate, lang)}` : ""}
+            </p>
+            <ul className="stack" style={{ marginTop: "1rem" }}>
+              {po.lines.map((l) => (
+                <li
+                  key={l.id}
+                  className="stack"
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    borderBottom: "1px solid var(--border-color, #eee)",
+                    paddingBlock: "0.5rem",
+                  }}
+                >
+                  <span>
+                    {l.description} × {l.quantity}
+                    {taxable ? ` (${l.taxRate}%)` : ""}
+                  </span>
+                  <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                    {formatYen(l.lineTotal, lang)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {taxable && po.totalTax > 0 && (
+              <div className="muted" style={{ marginTop: "1rem", fontSize: "0.88rem" }}>
+                <p>{t("tax.subtotalExTax")}: {formatYen(po.subtotalExTax, lang)}</p>
+                <p>{t("tax.totalTax")}: {formatYen(po.totalTax, lang)}</p>
+              </div>
+            )}
+            <p
+              className="text-right tabular-nums"
+              style={{ marginTop: "1rem", fontSize: "1.125rem", fontWeight: 700 }}
+            >
+              {formatYen(po.totalAmount, lang)}
+            </p>
+          </CardBody>
+        </Card>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        {canSendPo(po.status) && (
-          <form action={sendPurchaseOrder}>
+      <div className="stack" style={{ flexDirection: "row", flexWrap: "wrap", gap: "0.75rem" }}>
+        {canPostPo(po.status) && (
+          <form action={postPurchaseOrder}>
             <input type="hidden" name="id" value={po.id} />
-            <button
-              type="submit"
-              className="rounded-lg bg-emerald-700 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-600"
-            >
-              {t("po.send")}
+            <button type="submit" className="btn btn-success">
+              {t("po.post")}
             </button>
           </form>
         )}
-        {canCancelPo(po.status) && (
+        {canVoidPo(po.status) && (
+          <form action={voidPurchaseOrder}>
+            <input type="hidden" name="id" value={po.id} />
+            <button type="submit" className="btn btn-danger">
+              {t("po.void")}
+            </button>
+          </form>
+        )}
+        {canCancelPo(po.status) && po.status === "DRAFT" && (
           <form action={cancelPurchaseOrder}>
             <input type="hidden" name="id" value={po.id} />
-            <button
-              type="submit"
-              className="rounded-lg border border-rose-200 px-5 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
-            >
+            <button type="submit" className="btn btn-muted">
               {t("po.cancel")}
             </button>
           </form>
         )}
       </div>
 
-      {canReceivePo(po.status) && (
-        <form
-          action={recordPurchaseOrderReceipt}
-          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <input type="hidden" name="id" value={po.id} />
-          <h2 className="font-semibold">{t("po.recordReceipt")}</h2>
-          {po.lines.map((l) => {
-            const remaining = l.quantity - l.qtyReceived;
-            if (remaining <= 0) return null;
-            return (
-              <div key={l.id} className="flex items-center gap-4 text-sm">
-                <input type="hidden" name="lineId" value={l.id} />
-                <span className="min-w-0 flex-1 truncate">{l.description}</span>
-                <span className="text-slate-500">max {remaining}</span>
+      {isPosted && (
+        <Card>
+          <CardBody>
+            <form action={recordPoPayment} className="stack">
+              <input type="hidden" name="id" value={po.id} />
+              <h2 style={{ fontWeight: 600 }}>{t("po.recordPayment")}</h2>
+              <div className="form-group">
+                <label className="form-label" htmlFor="amountPaid">
+                  {t("po.amountPaid")}
+                </label>
                 <input
-                  name="receiveQty"
+                  id="amountPaid"
+                  name="amountPaid"
                   type="number"
                   min={0}
-                  max={remaining}
-                  defaultValue={remaining}
-                  className="w-20 rounded-lg border border-slate-300 px-2 py-1"
+                  max={po.totalAmount}
+                  step={1}
+                  defaultValue={po.amountPaid}
+                  className="input"
                 />
               </div>
-            );
-          })}
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            {t("po.recordReceipt")}
-          </button>
-        </form>
+              <button type="submit" className="btn btn-primary">
+                {t("po.updatePayment")}
+              </button>
+            </form>
+          </CardBody>
+        </Card>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="border-b border-slate-100 px-6 py-4 font-semibold">
-          {t("po.receipts")}
-        </h2>
+      <Card>
+        <CardHeader>{t("po.attachments")}</CardHeader>
         {po.attachments.length === 0 ? (
-          <p className="px-6 py-6 text-sm text-slate-500">{t("attach.empty")}</p>
+          <CardBody>
+            <p className="muted">{t("attach.empty")}</p>
+          </CardBody>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="stack">
             {po.attachments.map((file) => (
-              <li key={file.id} className="flex items-center gap-4 px-6 py-3">
-                <a
-                  href={`/api/files/${file.id}`}
-                  target="_blank"
-                  className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
-                >
+              <li
+                key={file.id}
+                className="stack"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: "1rem",
+                  padding: "0.75rem 1.25rem",
+                  borderBottom: "1px solid var(--border-color, #eee)",
+                }}
+              >
+                <a href={`/api/files/${file.id}`} target="_blank" className="btn-link" style={{ flex: 1 }}>
                   {file.originalName}
                 </a>
-                <span className="text-xs text-slate-400">{formatBytes(file.size)}</span>
-                <form action={deletePurchaseOrderAttachment}>
-                  <input type="hidden" name="id" value={file.id} />
-                  <button type="submit" className="text-sm text-rose-600 hover:underline">
-                    {t("attach.delete")}
-                  </button>
-                </form>
+                <span className="muted" style={{ fontSize: "0.75rem" }}>
+                  {formatBytes(file.size)}
+                </span>
+                {isDraft && (
+                  <form action={deletePurchaseOrderAttachment}>
+                    <input type="hidden" name="id" value={file.id} />
+                    <button type="submit" className="btn-link danger">
+                      {t("attach.delete")}
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>
         )}
-        {canReceivePo(po.status) || po.status === "CLOSED" ? (
+        <CardFooter>
           <form
             action={addPurchaseOrderAttachments}
-            className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-6 py-4"
+            className="stack"
+            style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}
           >
             <input type="hidden" name="purchaseOrderId" value={po.id} />
             <input
@@ -254,17 +310,15 @@ export default async function PurchaseOrderDetailPage({
               type="file"
               multiple
               accept="image/*,application/pdf"
-              className="flex-1 text-sm"
+              className="input"
+              style={{ flex: 1 }}
             />
-            <button
-              type="submit"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
+            <button type="submit" className="btn btn-muted">
               {t("attach.upload")}
             </button>
           </form>
-        ) : null}
-      </section>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

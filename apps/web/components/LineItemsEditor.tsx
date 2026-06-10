@@ -1,25 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import type { TaxRate } from "@shime/shared";
 
-type Line = { description: string; quantity: number; unitPrice: number };
+type Line = { description: string; quantity: number; unitPrice: number; taxRate: TaxRate };
 
 type Props = {
   labels: {
     description: string;
     quantity: string;
     unitPrice: string;
+    taxRate?: string;
     add: string;
     remove: string;
+    rate10?: string;
+    rate8?: string;
+    rate0?: string;
   };
-  defaults?: Line[];
+  defaults?: (Omit<Line, "taxRate"> & { taxRate?: TaxRate })[];
+  taxable?: boolean;
+  defaultTaxRate?: TaxRate;
+  unitPriceLabel?: string;
 };
 
-export function LineItemsEditor({ labels, defaults }: Props) {
+export function LineItemsEditor({
+  labels,
+  defaults,
+  taxable = false,
+  defaultTaxRate = 10,
+  unitPriceLabel,
+}: Props) {
   const [lines, setLines] = useState<Line[]>(
     defaults?.length
-      ? defaults
-      : [{ description: "", quantity: 1, unitPrice: 0 }]
+      ? defaults.map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          taxRate: (l.taxRate ?? defaultTaxRate) as TaxRate,
+        }))
+      : [{ description: "", quantity: 1, unitPrice: 0, taxRate: defaultTaxRate }]
   );
 
   function update(i: number, field: keyof Line, value: string) {
@@ -29,7 +48,11 @@ export function LineItemsEditor({ labels, defaults }: Props) {
           ? {
               ...line,
               [field]:
-                field === "description" ? value : Math.round(Number(value)) || 0,
+                field === "description"
+                  ? value
+                  : field === "taxRate"
+                    ? (Number(value) as TaxRate)
+                    : Math.round(Number(value)) || 0,
             }
           : line
       )
@@ -37,16 +60,21 @@ export function LineItemsEditor({ labels, defaults }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="stack">
       {lines.map((line, i) => (
-        <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-12">
+        <div
+          key={i}
+          className="form-grid"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 1fr))" }}
+        >
           <input
             name="line_description"
             value={line.description}
             onChange={(e) => update(i, "description", e.target.value)}
             placeholder={labels.description}
             required
-            className="sm:col-span-6 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="input"
+            style={{ gridColumn: "span 2" }}
           />
           <input
             name="line_quantity"
@@ -57,7 +85,7 @@ export function LineItemsEditor({ labels, defaults }: Props) {
             onChange={(e) => update(i, "quantity", e.target.value)}
             placeholder={labels.quantity}
             required
-            className="sm:col-span-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="input"
           />
           <input
             name="line_unitPrice"
@@ -66,15 +94,28 @@ export function LineItemsEditor({ labels, defaults }: Props) {
             step={1}
             value={line.unitPrice || ""}
             onChange={(e) => update(i, "unitPrice", e.target.value)}
-            placeholder={labels.unitPrice}
+            placeholder={unitPriceLabel ?? labels.unitPrice}
             required
-            className="sm:col-span-3 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="input"
           />
+          {taxable && (
+            <select
+              name="line_taxRate"
+              value={line.taxRate}
+              onChange={(e) => update(i, "taxRate", e.target.value)}
+              className="select"
+              aria-label={labels.taxRate}
+            >
+              <option value={10}>{labels.rate10 ?? "10%"}</option>
+              <option value={8}>{labels.rate8 ?? "8%"}</option>
+              <option value={0}>{labels.rate0 ?? "0%"}</option>
+            </select>
+          )}
           {lines.length > 1 && (
             <button
               type="button"
               onClick={() => setLines((prev) => prev.filter((_, idx) => idx !== i))}
-              className="sm:col-span-1 text-sm text-rose-600 hover:underline"
+              className="btn-link danger"
             >
               {labels.remove}
             </button>
@@ -84,9 +125,12 @@ export function LineItemsEditor({ labels, defaults }: Props) {
       <button
         type="button"
         onClick={() =>
-          setLines((prev) => [...prev, { description: "", quantity: 1, unitPrice: 0 }])
+          setLines((prev) => [
+            ...prev,
+            { description: "", quantity: 1, unitPrice: 0, taxRate: defaultTaxRate },
+          ])
         }
-        className="text-sm font-medium text-slate-600 underline-offset-2 hover:underline"
+        className="btn-link"
       >
         + {labels.add}
       </button>

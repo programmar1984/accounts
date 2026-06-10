@@ -1,60 +1,106 @@
-# Application Design — MVP-1
+# Application Design — Document Model (MVP-2.5)
 
 ## Components
 
 | Layer | Module | Responsibility |
 |-------|--------|----------------|
-| UI | `app/(app)/customers/*` | Customer list, create, edit |
-| UI | `app/(app)/suppliers/*` | Supplier list, create, edit |
-| UI | `app/(app)/invoices/*` | Invoice list, draft edit, issue |
-| UI | `app/(app)/purchase-orders/*` | PO list, draft, send, receive, attachments |
-| UI | `app/(app)/transactions/*` | Ledger + payment + receipt uploads |
+| UI | `app/(app)/ledger/*` | Unified ledger list (replaces Transactions nav) |
+| UI | `app/(app)/purchase-orders/*` | PO bill entry: draft → post, attachments, payment |
+| UI | `app/(app)/sales-orders/*` | Sales orders (Invoice table); issue PDF, payment |
+| UI | `app/(app)/expenses/*` | Expense vouchers; optional supplier, post, attachments |
+| UI | `app/(app)/customers/*` | Customer masters (code shown on ledger) |
+| UI | `app/(app)/suppliers/*` | Supplier masters (code shown on ledger) |
+| UI | `app/(app)/settings/tax/*` | JCT company settings |
+| Actions | `lib/actions-purchase-orders.ts` | PO CRUD, post, void, cancel, payment, attachments |
+| Actions | `lib/actions-invoices.ts` | SO CRUD, issue, void, payment (no transaction on issue) |
+| Actions | `lib/actions-expenses.ts` | Expense CRUD, post, void, payment, attachments |
+| Actions | `lib/ledger.ts` | Union queries for ledger + JCT aggregates |
 | Actions | `lib/actions-counterparties.ts` | Customer/supplier CRUD |
-| Actions | `lib/actions-invoices.ts` | Invoice CRUD, issue, void |
-| Actions | `lib/actions-purchase-orders.ts` | PO lifecycle, receipts, attachments |
-| Actions | `lib/actions.ts` | Auth, transactions, payments, tx attachments |
+| Lib | `lib/tax-helpers.ts` | `parseDocumentLines`, `summarizeDocumentLines` |
 | Lib | `lib/invoices/pdf.ts` | PDF generation (pdfkit) |
-| Lib | `lib/numbers.ts` | INV-/PO- number sequences |
-| Lib | `lib/payment.ts` | Payment status computation |
-| Lib | `lib/po/status.ts` | PO state machine helpers |
-| API | `api/invoices/[id]/pdf` | Auth-gated invoice PDF download |
+| Lib | `lib/company-settings.ts` | JCT settings read |
+| Shared | `packages/shared/src/po/status.ts` | PO: DRAFT → POSTED |
+| Shared | `packages/shared/src/expense/status.ts` | Expense: DRAFT → POSTED |
+| API | `api/invoices/[id]/pdf` | Auth-gated SO PDF download |
 | API | `api/files/[id]` | Auth-gated attachment download |
+
+**Redirects:** `/invoices/*` → `/sales-orders/*`; `/transactions/*` → `/ledger`.
 
 ## Data model
 
-See [`lib/db/schema.ts`](../../../lib/db/schema.ts): `Customer`, `Supplier`, `Invoice`, `InvoiceLine`, `PurchaseOrder`, `PurchaseOrderLine`; extended `Transaction` and `Attachment`.
+See `packages/db/src/schema.ts`:
 
-## PO state machine
+- `Invoice` + `InvoiceLine` — Sales Orders (UI); `paymentStatus`, `amountPaid` on header
+- `PurchaseOrder` + `PurchaseOrderLine` — bill model; `dueDate`, `paymentStatus`, `amountPaid`, `postedAt`; no `qtyReceived`
+- `Expense` + `ExpenseLine` — new; optional `supplierId`
+- `Attachment` — `expenseId` FK added; links to PO, SO, Expense
+- `Transaction` — legacy; no new rows from PO/SO flows
 
-```
-DRAFT --send--> SENT --partial receive--> PARTIALLY_RECEIVED --full receive--> CLOSED
-  |               |                              |
-  cancel          cancel                         cancel
-  v               v                              v
-CANCELLED      CANCELLED                      CANCELLED
-```
+Migration: `0004_document_model.sql`
 
-`recordPurchaseOrderReceipt` updates `qtyReceived`, creates PURCHASE transaction for received value, recomputes status via `computePoStatus`.
-
-## Invoice lifecycle
+## PO state machine (bill recording)
 
 ```
-DRAFT --issue (+ optional SALE tx)--> ISSUED --void--> VOID
+DRAFT --post--> POSTED --void--> VOID
+  |
+  cancel
+  v
+CANCELLED
 ```
 
-PDF stored in `uploads/` as `pdfStoredName`.
+`postPurchaseOrder` sets totals, `postedAt`, status POSTED. No send/receive or PURCHASE transaction creation.
+
+## Sales Order lifecycle
+
+```
+DRAFT --issue (+ PDF)--> ISSUED --void--> VOID
+```
+
+`issueInvoice` generates PDF; does **not** create a SALE transaction. Payment tracked on document header.
+
+## Expense lifecycle
+
+```
+DRAFT --post--> POSTED --void--> VOID
+```
+
+Supplier optional. Posted expenses appear on ledger with supplier code or `—`.
+
+## Ledger
+
+`lib/ledger.ts` unions:
+
+| Source | Status filter | Party code |
+|--------|---------------|------------|
+| PurchaseOrder | POSTED | `Supplier.code` |
+| Invoice (SO) | ISSUED | `Customer.code` |
+| Expense | POSTED | `Supplier.code` if linked |
+
+Dashboard JCT: output tax from ISSUED SOs; input tax from POSTED POs + POSTED Expenses.
+
+## Shared line-item UX
+
+`LineItemsEditor` — default 1 row; **Add line item** (`line.add`); per-line tax 10% / 8% / 0%.
 
 ## Server action map
 
 | Action | Auth | Validates |
 |--------|------|-----------|
-| `createCustomer` | user | name required |
-| `createInvoice` | user | customer, dates, lines |
+| `postPurchaseOrder` | user | status DRAFT, lines |
+| `recordPoPayment` | user | status POSTED |
 | `issueInvoice` | user | status DRAFT |
-| `sendPurchaseOrder` | user | status DRAFT |
-| `recordPurchaseOrderReceipt` | user | status SENT or PARTIALLY_RECEIVED |
-| `recordPayment` | user | 0 <= amountPaid <= amount |
+| `recordSoPayment` | user | status ISSUED |
+| `postExpense` | user | status DRAFT |
+| `recordExpensePayment` | user | status POSTED |
 
 ## i18n
 
-All new UI strings in `lib/i18n.ts` under `cust.*`, `supp.*`, `inv.*`, `po.*`, `pay.*`, extended `tx.*` and `nav.*`.
+Keys: `ledger.*`, `so.*`, `exp.*`, `line.*`, updated `po.*`, `nav.*` (EN/JA in `lib/i18n.ts`).
+
+## UI shell and theme
+
+Unchanged from MVP-1 — AdminLTE-inspired shell, light/dark theme, shared primitives.
+
+## Consumption tax (MVP-2)
+
+Tax math in `packages/shared/src/tax.ts`; document headers store aggregated `subtotalExTax`, `totalTax`, `totalAmount` via `summarizeDocumentLines`.

@@ -14,6 +14,8 @@ import {
 } from "@shime/db";
 import { computePaymentStatus, createId } from "@shime/shared";
 import { createSession, destroySession, requireAdmin, requireUser } from "./auth";
+import { getCompanySettings } from "./company-settings";
+import { computeTransactionTax } from "./tax-helpers";
 import { deleteUpload, isAllowedMimeType, MAX_FILE_SIZE, saveUpload } from "./files";
 
 // ---------- auth ----------
@@ -66,31 +68,38 @@ async function resolveCounterparty(
   return counterparty;
 }
 
-function parseTransactionForm(formData: FormData) {
+async function parseTransactionForm(formData: FormData) {
+  const settings = await getCompanySettings();
   const type = String(formData.get("type") ?? "");
   const dateStr = String(formData.get("date") ?? "");
   const counterparty = String(formData.get("counterparty") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const memo = String(formData.get("memo") ?? "").trim();
-  const amount = Math.round(Number(formData.get("amount")));
+  const rawAmount = Math.round(Number(formData.get("amount")));
   const customerId = String(formData.get("customerId") ?? "").trim() || null;
   const supplierId = String(formData.get("supplierId") ?? "").trim() || null;
   const dueStr = String(formData.get("dueDate") ?? "").trim();
   const dueDate = dueStr ? new Date(`${dueStr}T00:00:00.000Z`) : null;
   const amountPaid = Math.round(Number(formData.get("amountPaid") ?? 0));
 
+  const tax = computeTransactionTax(
+    rawAmount,
+    formData.get("taxRate"),
+    settings
+  );
+
   const date = new Date(`${dateStr}T00:00:00.000Z`);
   const valid =
     TX_TYPES.has(type) &&
     !Number.isNaN(date.getTime()) &&
     counterparty.length > 0 &&
-    Number.isFinite(amount) &&
-    amount > 0 &&
+    Number.isFinite(rawAmount) &&
+    rawAmount > 0 &&
     Number.isFinite(amountPaid) &&
     amountPaid >= 0 &&
-    amountPaid <= amount;
+    amountPaid <= tax.amount;
 
-  const paymentStatus = computePaymentStatus(amount, amountPaid);
+  const paymentStatus = computePaymentStatus(tax.amount, amountPaid);
 
   return {
     valid,
@@ -99,7 +108,10 @@ function parseTransactionForm(formData: FormData) {
       date,
       counterparty,
       description,
-      amount,
+      amount: tax.amount,
+      taxRate: tax.taxRate,
+      taxAmount: tax.taxAmount,
+      amountExTax: tax.amountExTax,
       memo: memo || null,
       customerId: type === "SALE" ? customerId : null,
       supplierId: type === "PURCHASE" ? supplierId : null,
@@ -139,7 +151,7 @@ async function saveAttachmentsFromForm(
 
 export async function createTransaction(formData: FormData) {
   const session = await requireUser();
-  const { valid, data } = parseTransactionForm(formData);
+  const { valid, data } = await parseTransactionForm(formData);
   if (!valid) redirect("/transactions/new?error=required");
 
   const counterparty = await resolveCounterparty(
@@ -168,7 +180,7 @@ export async function createTransaction(formData: FormData) {
 export async function updateTransaction(formData: FormData) {
   await requireUser();
   const id = String(formData.get("id") ?? "");
-  const { valid, data } = parseTransactionForm(formData);
+  const { valid, data } = await parseTransactionForm(formData);
   if (!valid) redirect(`/transactions/${id}?error=required`);
 
   const counterparty = await resolveCounterparty(

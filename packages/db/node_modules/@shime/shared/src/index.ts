@@ -7,10 +7,31 @@ export {
 export {
   PO_STATUSES,
   type PoStatus,
-  computePoStatus,
-  canSendPo,
-  canReceivePo,
+  canPostPo,
   canCancelPo,
+  canVoidPo,
 } from "./po/status";
+export {
+  EXPENSE_STATUSES,
+  type ExpenseStatus,
+  canPostExpense,
+  canVoidExpense,
+} from "./expense/status";
 export { lineTotal } from "./line-total";
 export { createId } from "./id";
+export {
+  type TaxRate,
+  type JctStatus,
+  type PriceBasis,
+  type TaxRounding,
+  type TaxSplit,
+  type TaxRateBucket,
+  type InvoiceTaxSummary,
+  type LineTaxInput,
+  computeTaxFromExTax,
+  computeTaxFromInclusive,
+  splitLineAmount,
+  computeLineExTax,
+  aggregateInvoiceTaxByRate,
+  parseTaxRate,
+} from "./tax";

@@ -1,10 +1,12 @@
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { createId } from "@shime/shared";
 import { db, users } from "../src";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 async function main() {

@@ -1,4 +1,6 @@
 import { getT, type TKey } from "@/lib/i18n";
+import { TransactionTaxSection } from "@/components/TransactionTaxSection";
+import type { PriceBasis, TaxRate } from "@shime/shared";
 
 const TYPES = ["SALE", "PURCHASE", "EXPENSE"] as const;
 
@@ -15,32 +17,47 @@ type Defaults = {
   supplierId?: string | null;
   dueDate?: Date | null;
   amountPaid?: number;
+  taxRate?: number | null;
+};
+
+type TaxConfig = {
+  taxable: boolean;
+  priceBasis: PriceBasis;
+  defaultTaxRate: TaxRate;
 };
 
 export async function TransactionFields({
   defaults,
   customers = [],
   suppliers = [],
+  taxConfig,
 }: {
   defaults?: Defaults;
   customers?: PartyOption[];
   suppliers?: PartyOption[];
+  taxConfig?: TaxConfig;
 }) {
   const { t } = await getT();
-  const inputCls =
-    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
+  const taxable = taxConfig?.taxable ?? false;
+
+  const amountLabel =
+    taxable && taxConfig?.priceBasis === "TAX_EXCLUSIVE"
+      ? t("tax.amountExTax")
+      : taxable
+        ? t("tax.amountInclusive")
+        : t("tx.amount");
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="type">
+    <div className="form-grid form-grid-2">
+      <div className="form-group">
+        <label className="form-label" htmlFor="type">
           {t("tx.type")}
         </label>
         <select
           id="type"
           name="type"
           defaultValue={defaults?.type ?? "EXPENSE"}
-          className={inputCls}
+          className="select"
         >
           {TYPES.map((ty) => (
             <option key={ty} value={ty}>
@@ -49,8 +66,8 @@ export async function TransactionFields({
           ))}
         </select>
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="date">
+      <div className="form-group">
+        <label className="form-label" htmlFor="date">
           {t("tx.date")}
         </label>
         <input
@@ -58,22 +75,20 @@ export async function TransactionFields({
           name="date"
           type="date"
           required
-          defaultValue={
-            (defaults?.date ?? new Date()).toISOString().slice(0, 10)
-          }
-          className={inputCls}
+          defaultValue={(defaults?.date ?? new Date()).toISOString().slice(0, 10)}
+          className="input"
         />
       </div>
       {customers.length > 0 && (
-        <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="customerId">
+        <div className="form-group">
+          <label className="form-label" htmlFor="customerId">
             {t("tx.customer")}
           </label>
           <select
             id="customerId"
             name="customerId"
             defaultValue={defaults?.customerId ?? ""}
-            className={inputCls}
+            className="select"
           >
             <option value="">{t("tx.partyNone")}</option>
             {customers.map((c) => (
@@ -85,15 +100,15 @@ export async function TransactionFields({
         </div>
       )}
       {suppliers.length > 0 && (
-        <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="supplierId">
+        <div className="form-group">
+          <label className="form-label" htmlFor="supplierId">
             {t("tx.supplier")}
           </label>
           <select
             id="supplierId"
             name="supplierId"
             defaultValue={defaults?.supplierId ?? ""}
-            className={inputCls}
+            className="select"
           >
             <option value="">{t("tx.partyNone")}</option>
             {suppliers.map((s) => (
@@ -104,8 +119,8 @@ export async function TransactionFields({
           </select>
         </div>
       )}
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="counterparty">
+      <div className="form-group">
+        <label className="form-label" htmlFor="counterparty">
           {t("tx.counterparty")}
         </label>
         <input
@@ -115,26 +130,44 @@ export async function TransactionFields({
           required
           defaultValue={defaults?.counterparty ?? ""}
           placeholder={t("tx.counterparty.hint")}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="amount">
-          {t("tx.amount")}
-        </label>
-        <input
-          id="amount"
-          name="amount"
-          type="number"
-          min={1}
-          step={1}
-          required
-          defaultValue={defaults?.amount ?? ""}
-          className={inputCls}
+      {taxable && taxConfig ? (
+        <TransactionTaxSection
+          priceBasis={taxConfig.priceBasis}
+          defaultTaxRate={taxConfig.defaultTaxRate}
+          defaultAmount={defaults?.amount}
+          defaultTaxRateValue={defaults?.taxRate}
+          labels={{
+            amount: amountLabel,
+            taxRate: t("tax.rate"),
+            taxAmount: t("tax.amount"),
+            amountExTax: t("tax.exTax"),
+            rate10: t("tax.rate10"),
+            rate8: t("tax.rate8"),
+            rate0: t("tax.rate0"),
+          }}
         />
-      </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="dueDate">
+      ) : (
+        <div className="form-group">
+          <label className="form-label" htmlFor="amount">
+            {t("tx.amount")}
+          </label>
+          <input
+            id="amount"
+            name="amount"
+            type="number"
+            min={1}
+            step={1}
+            required
+            defaultValue={defaults?.amount ?? ""}
+            className="input"
+          />
+        </div>
+      )}
+      <div className="form-group">
+        <label className="form-label" htmlFor="dueDate">
           {t("tx.dueDate")}
         </label>
         <input
@@ -142,15 +175,13 @@ export async function TransactionFields({
           name="dueDate"
           type="date"
           defaultValue={
-            defaults?.dueDate
-              ? defaults.dueDate.toISOString().slice(0, 10)
-              : ""
+            defaults?.dueDate ? defaults.dueDate.toISOString().slice(0, 10) : ""
           }
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="amountPaid">
+      <div className="form-group">
+        <label className="form-label" htmlFor="amountPaid">
           {t("tx.amountPaid")}
         </label>
         <input
@@ -160,11 +191,11 @@ export async function TransactionFields({
           min={0}
           step={1}
           defaultValue={defaults?.amountPaid ?? 0}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div className="sm:col-span-2">
-        <label className="mb-1 block text-sm font-medium" htmlFor="description">
+      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+        <label className="form-label" htmlFor="description">
           {t("tx.description")}
         </label>
         <input
@@ -172,11 +203,11 @@ export async function TransactionFields({
           name="description"
           type="text"
           defaultValue={defaults?.description ?? ""}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div className="sm:col-span-2">
-        <label className="mb-1 block text-sm font-medium" htmlFor="memo">
+      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+        <label className="form-label" htmlFor="memo">
           {t("tx.memo")}
         </label>
         <textarea
@@ -184,7 +215,7 @@ export async function TransactionFields({
           name="memo"
           rows={2}
           defaultValue={defaults?.memo ?? ""}
-          className={inputCls}
+          className="textarea"
         />
       </div>
     </div>

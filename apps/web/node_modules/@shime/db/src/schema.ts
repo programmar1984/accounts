@@ -9,6 +9,20 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+export const companySettings = pgTable("CompanySettings", {
+  id: text("id").primaryKey().default("default"),
+  jctStatus: text("jctStatus").notNull().default("EXEMPT"),
+  invoiceRegistrationNumber: text("invoiceRegistrationNumber"),
+  companyName: text("companyName"),
+  companyAddress: text("companyAddress"),
+  defaultTaxRate: integer("defaultTaxRate").notNull().default(10),
+  priceBasis: text("priceBasis").notNull().default("TAX_EXCLUSIVE"),
+  taxRounding: text("taxRounding").notNull().default("FLOOR"),
+  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
 export const users = pgTable(
   "User",
   {
@@ -72,6 +86,9 @@ export const transactions = pgTable(
     counterparty: text("counterparty").notNull(),
     description: text("description").notNull().default(""),
     amount: integer("amount").notNull(),
+    taxRate: integer("taxRate"),
+    taxAmount: integer("taxAmount").notNull().default(0),
+    amountExTax: integer("amountExTax").notNull().default(0),
     memo: text("memo"),
     customerId: text("customerId").references(() => customers.id),
     supplierId: text("supplierId").references(() => suppliers.id),
@@ -110,8 +127,12 @@ export const invoices = pgTable(
     issueDate: timestamp("issueDate", { mode: "date" }).notNull(),
     dueDate: timestamp("dueDate", { mode: "date" }).notNull(),
     notes: text("notes"),
+    subtotalExTax: integer("subtotalExTax").notNull().default(0),
+    totalTax: integer("totalTax").notNull().default(0),
     totalAmount: integer("totalAmount").notNull().default(0),
     pdfStoredName: text("pdfStoredName"),
+    paymentStatus: text("paymentStatus").notNull().default("UNPAID"),
+    amountPaid: integer("amountPaid").notNull().default(0),
     transactionId: text("transactionId").references(() => transactions.id),
     createdById: text("createdById")
       .notNull()
@@ -141,6 +162,9 @@ export const invoiceLines = pgTable(
     quantity: integer("quantity").notNull().default(1),
     unitPrice: integer("unitPrice").notNull(),
     lineTotal: integer("lineTotal").notNull(),
+    taxRate: integer("taxRate").notNull().default(10),
+    taxAmount: integer("taxAmount").notNull().default(0),
+    lineTotalExTax: integer("lineTotalExTax").notNull().default(0),
     sortOrder: integer("sortOrder").notNull().default(0),
   },
   (table) => [index("InvoiceLine_invoiceId_idx").on(table.invoiceId)]
@@ -156,9 +180,14 @@ export const purchaseOrders = pgTable(
       .references(() => suppliers.id),
     status: text("status").notNull().default("DRAFT"),
     issueDate: timestamp("issueDate", { mode: "date" }).notNull(),
-    expectedDate: timestamp("expectedDate", { mode: "date" }),
+    dueDate: timestamp("dueDate", { mode: "date" }),
     notes: text("notes"),
+    subtotalExTax: integer("subtotalExTax").notNull().default(0),
+    totalTax: integer("totalTax").notNull().default(0),
     totalAmount: integer("totalAmount").notNull().default(0),
+    paymentStatus: text("paymentStatus").notNull().default("UNPAID"),
+    amountPaid: integer("amountPaid").notNull().default(0),
+    postedAt: timestamp("postedAt", { mode: "date" }),
     createdById: text("createdById")
       .notNull()
       .references(() => users.id),
@@ -173,6 +202,7 @@ export const purchaseOrders = pgTable(
     uniqueIndex("PurchaseOrder_number_key").on(table.number),
     index("PurchaseOrder_supplierId_idx").on(table.supplierId),
     index("PurchaseOrder_status_idx").on(table.status),
+    index("PurchaseOrder_issueDate_idx").on(table.issueDate),
   ]
 );
 
@@ -186,13 +216,69 @@ export const purchaseOrderLines = pgTable(
     description: text("description").notNull(),
     quantity: integer("quantity").notNull().default(1),
     unitPrice: integer("unitPrice").notNull(),
-    qtyReceived: integer("qtyReceived").notNull().default(0),
     lineTotal: integer("lineTotal").notNull(),
+    taxRate: integer("taxRate").notNull().default(10),
+    taxAmount: integer("taxAmount").notNull().default(0),
+    lineTotalExTax: integer("lineTotalExTax").notNull().default(0),
     sortOrder: integer("sortOrder").notNull().default(0),
   },
   (table) => [
     index("PurchaseOrderLine_purchaseOrderId_idx").on(table.purchaseOrderId),
   ]
+);
+
+export const expenses = pgTable(
+  "Expense",
+  {
+    id: text("id").primaryKey(),
+    number: text("number").notNull(),
+    expenseDate: timestamp("expenseDate", { mode: "date" }).notNull(),
+    supplierId: text("supplierId").references(() => suppliers.id),
+    description: text("description").notNull().default(""),
+    notes: text("notes"),
+    status: text("status").notNull().default("DRAFT"),
+    subtotalExTax: integer("subtotalExTax").notNull().default(0),
+    totalTax: integer("totalTax").notNull().default(0),
+    totalAmount: integer("totalAmount").notNull().default(0),
+    dueDate: timestamp("dueDate", { mode: "date" }),
+    paymentStatus: text("paymentStatus").notNull().default("UNPAID"),
+    amountPaid: integer("amountPaid").notNull().default(0),
+    postedAt: timestamp("postedAt", { mode: "date" }),
+    createdById: text("createdById")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("createdAt", { mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("Expense_number_key").on(table.number),
+    index("Expense_expenseDate_idx").on(table.expenseDate),
+    index("Expense_supplierId_idx").on(table.supplierId),
+    index("Expense_status_idx").on(table.status),
+  ]
+);
+
+export const expenseLines = pgTable(
+  "ExpenseLine",
+  {
+    id: text("id").primaryKey(),
+    expenseId: text("expenseId")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    unitPrice: integer("unitPrice").notNull(),
+    lineTotal: integer("lineTotal").notNull(),
+    taxRate: integer("taxRate").notNull().default(10),
+    taxAmount: integer("taxAmount").notNull().default(0),
+    lineTotalExTax: integer("lineTotalExTax").notNull().default(0),
+    sortOrder: integer("sortOrder").notNull().default(0),
+  },
+  (table) => [index("ExpenseLine_expenseId_idx").on(table.expenseId)]
 );
 
 export const attachments = pgTable(
@@ -206,6 +292,9 @@ export const attachments = pgTable(
       () => purchaseOrders.id,
       { onDelete: "cascade" }
     ),
+    expenseId: text("expenseId").references(() => expenses.id, {
+      onDelete: "cascade",
+    }),
     originalName: text("originalName").notNull(),
     storedName: text("storedName").notNull(),
     mimeType: text("mimeType").notNull(),
@@ -225,6 +314,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   attachments: many(attachments),
   invoices: many(invoices),
   purchaseOrders: many(purchaseOrders),
+  expenses: many(expenses),
 }));
 
 export const customersRelations = relations(customers, ({ many }) => ({
@@ -235,6 +325,7 @@ export const customersRelations = relations(customers, ({ many }) => ({
 export const suppliersRelations = relations(suppliers, ({ many }) => ({
   transactions: many(transactions),
   purchaseOrders: many(purchaseOrders),
+  expenses: many(expenses),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one, many }) => ({
@@ -302,6 +393,26 @@ export const purchaseOrderLinesRelations = relations(
   })
 );
 
+export const expensesRelations = relations(expenses, ({ one, many }) => ({
+  supplier: one(suppliers, {
+    fields: [expenses.supplierId],
+    references: [suppliers.id],
+  }),
+  createdBy: one(users, {
+    fields: [expenses.createdById],
+    references: [users.id],
+  }),
+  lines: many(expenseLines),
+  attachments: many(attachments),
+}));
+
+export const expenseLinesRelations = relations(expenseLines, ({ one }) => ({
+  expense: one(expenses, {
+    fields: [expenseLines.expenseId],
+    references: [expenses.id],
+  }),
+}));
+
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
   transaction: one(transactions, {
     fields: [attachments.transactionId],
@@ -310,6 +421,10 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
   purchaseOrder: one(purchaseOrders, {
     fields: [attachments.purchaseOrderId],
     references: [purchaseOrders.id],
+  }),
+  expense: one(expenses, {
+    fields: [attachments.expenseId],
+    references: [expenses.id],
   }),
   uploadedBy: one(users, {
     fields: [attachments.uploadedById],

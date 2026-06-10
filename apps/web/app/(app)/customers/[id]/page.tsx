@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { customers, db } from "@shime/db";
@@ -6,6 +5,10 @@ import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { updateCustomer } from "@/lib/actions-counterparties";
 import { PartyFields } from "@/components/PartyFields";
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardBody } from "@/components/ui/Card";
 
 export default async function CustomerDetailPage({
   params,
@@ -23,36 +26,30 @@ export default async function CustomerDetailPage({
   if (!customer) notFound();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t("cust.edit")}</h1>
-        <Link href="/customers" className="text-sm text-slate-500 hover:underline">
-          ← {t("cust.title")}
-        </Link>
-      </div>
-      {saved && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {t("cust.saved")}
-        </p>
-      )}
+    <div className="stack-lg" style={{ maxWidth: "42rem", marginInline: "auto" }}>
+      <PageToolbar
+        title={t("cust.edit")}
+        actions={
+          <ButtonLink href="/customers" variant="muted" size="sm">
+            ← {t("cust.title")}
+          </ButtonLink>
+        }
+      />
+      {saved && <Alert variant="success">{t("cust.saved")}</Alert>}
       {error === "required" && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {t("cust.error.required")}
-        </p>
+        <Alert variant="danger">{t("cust.error.required")}</Alert>
       )}
-      <form
-        action={updateCustomer}
-        className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <input type="hidden" name="id" value={customer.id} />
-        <PartyFields kind="customer" defaults={customer} />
-        <button
-          type="submit"
-          className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          {t("cust.save")}
-        </button>
-      </form>
+      <Card>
+        <CardBody>
+          <form action={updateCustomer} className="stack">
+            <input type="hidden" name="id" value={customer.id} />
+            <PartyFields kind="customer" defaults={customer} />
+            <button type="submit" className="btn btn-primary">
+              {t("cust.save")}
+            </button>
+          </form>
+        </CardBody>
+      </Card>
     </div>
   );
 }

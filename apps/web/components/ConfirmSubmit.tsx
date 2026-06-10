@@ -2,7 +2,7 @@
 
 export function ConfirmSubmit({
   message,
-  className,
+  className = "btn btn-danger",
   children,
 }: {
   message: string;

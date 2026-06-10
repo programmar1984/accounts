@@ -1,10 +1,15 @@
-import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, suppliers } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { createPurchaseOrder } from "@/lib/actions-purchase-orders";
+import { getCompanySettings } from "@/lib/company-settings";
 import { LineItemsEditor } from "@/components/LineItemsEditor";
+import type { TaxRate } from "@shime/shared";
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { ButtonLink } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardBody } from "@/components/ui/Card";
 
 export default async function NewPurchaseOrderPage({
   searchParams,
@@ -15,93 +20,99 @@ export default async function NewPurchaseOrderPage({
   const { t } = await getT();
   const { error } = await searchParams;
 
+  const settings = await getCompanySettings();
+  const taxable = settings.jctStatus === "TAXABLE";
   const supplierList = await db.query.suppliers.findMany({
     orderBy: [asc(suppliers.name)],
   });
 
   const today = new Date().toISOString().slice(0, 10);
-  const inputCls =
-    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">{t("po.new")}</h1>
+    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+      <PageToolbar title={t("po.new")} />
       {error === "required" && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {t("po.error.required")}
-        </p>
+        <Alert variant="danger">{t("po.error.required")}</Alert>
       )}
-      <form
-        action={createPurchaseOrder}
-        className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="supplierId">
-              {t("po.supplier")}
-            </label>
-            <select id="supplierId" name="supplierId" required className={inputCls}>
-              <option value="">—</option>
-              {supplierList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="issueDate">
-              {t("po.issueDate")}
-            </label>
-            <input
-              id="issueDate"
-              name="issueDate"
-              type="date"
-              required
-              defaultValue={today}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="expectedDate">
-              {t("po.expectedDate")}
-            </label>
-            <input id="expectedDate" name="expectedDate" type="date" className={inputCls} />
-          </div>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">{t("po.lines")}</label>
-          <LineItemsEditor
-            labels={{
-              description: t("inv.lineDescription"),
-              quantity: t("inv.lineQty"),
-              unitPrice: t("inv.linePrice"),
-              add: t("inv.addLine"),
-              remove: t("inv.removeLine"),
-            }}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="notes">
-            {t("po.notes")}
-          </label>
-          <textarea id="notes" name="notes" rows={2} className={inputCls} />
-        </div>
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            {t("inv.create")}
-          </button>
-          <Link
-            href="/purchase-orders"
-            className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            {t("tx.cancel")}
-          </Link>
-        </div>
-      </form>
+      <Card>
+        <CardBody>
+          <form action={createPurchaseOrder} className="stack">
+            <div className="form-grid form-grid-2">
+              <div className="form-group">
+                <label className="form-label" htmlFor="supplierId">
+                  {t("po.supplier")}
+                </label>
+                <select id="supplierId" name="supplierId" required className="select">
+                  <option value="">—</option>
+                  {supplierList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="issueDate">
+                  {t("po.issueDate")}
+                </label>
+                <input
+                  id="issueDate"
+                  name="issueDate"
+                  type="date"
+                  required
+                  defaultValue={today}
+                  className="input"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="dueDate">
+                  {t("po.dueDate")}
+                </label>
+                <input id="dueDate" name="dueDate" type="date" className="input" />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t("po.lines")}</label>
+              <LineItemsEditor
+                taxable={taxable}
+                defaultTaxRate={settings.defaultTaxRate as TaxRate}
+                unitPriceLabel={
+                  taxable && settings.priceBasis === "TAX_EXCLUSIVE"
+                    ? t("tax.exclusive")
+                    : taxable
+                      ? t("tax.inclusive")
+                      : t("inv.linePrice")
+                }
+                labels={{
+                  description: t("inv.lineDescription"),
+                  quantity: t("inv.lineQty"),
+                  unitPrice: t("inv.linePrice"),
+                  taxRate: t("tax.rate"),
+                  rate10: t("tax.rate10"),
+                  rate8: t("tax.rate8"),
+                  rate0: t("tax.rate0"),
+                  add: t("line.add"),
+                  remove: t("line.remove"),
+                }}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="notes">
+                {t("po.notes")}
+              </label>
+              <textarea id="notes" name="notes" rows={2} className="textarea" />
+            </div>
+            <div className="stack" style={{ flexDirection: "row", gap: "0.75rem" }}>
+              <button type="submit" className="btn btn-primary">
+                {t("po.create")}
+              </button>
+              <ButtonLink href="/purchase-orders" variant="muted">
+                {t("tx.cancel")}
+              </ButtonLink>
+            </div>
+          </form>
+        </CardBody>
+      </Card>
     </div>
   );
 }

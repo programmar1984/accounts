@@ -19,13 +19,11 @@ export async function PartyFields({
 }) {
   const { t } = await getT();
   const prefix = kind === "customer" ? "cust" : "supp";
-  const inputCls =
-    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="name">
+    <div className="form-grid form-grid-2">
+      <div className="form-group">
+        <label className="form-label" htmlFor="name">
           {t(`${prefix}.name` as "cust.name")}
         </label>
         <input
@@ -34,11 +32,11 @@ export async function PartyFields({
           type="text"
           required
           defaultValue={defaults?.name ?? ""}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="code">
+      <div className="form-group">
+        <label className="form-label" htmlFor="code">
           {t(`${prefix}.code` as "cust.code")}
         </label>
         <input
@@ -46,11 +44,11 @@ export async function PartyFields({
           name="code"
           type="text"
           defaultValue={defaults?.code ?? ""}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="email">
+      <div className="form-group">
+        <label className="form-label" htmlFor="email">
           {t(`${prefix}.email` as "cust.email")}
         </label>
         <input
@@ -58,11 +56,11 @@ export async function PartyFields({
           name="email"
           type="email"
           defaultValue={defaults?.email ?? ""}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="phone">
+      <div className="form-group">
+        <label className="form-label" htmlFor="phone">
           {t(`${prefix}.phone` as "cust.phone")}
         </label>
         <input
@@ -70,11 +68,11 @@ export async function PartyFields({
           name="phone"
           type="text"
           defaultValue={defaults?.phone ?? ""}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div className="sm:col-span-2">
-        <label className="mb-1 block text-sm font-medium" htmlFor="address">
+      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+        <label className="form-label" htmlFor="address">
           {t(`${prefix}.address` as "cust.address")}
         </label>
         <textarea
@@ -82,11 +80,11 @@ export async function PartyFields({
           name="address"
           rows={2}
           defaultValue={defaults?.address ?? ""}
-          className={inputCls}
+          className="textarea"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="taxId">
+      <div className="form-group">
+        <label className="form-label" htmlFor="taxId">
           {t(`${prefix}.taxId` as "cust.taxId")}
         </label>
         <input
@@ -94,11 +92,11 @@ export async function PartyFields({
           name="taxId"
           type="text"
           defaultValue={defaults?.taxId ?? ""}
-          className={inputCls}
+          className="input"
         />
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium" htmlFor="paymentTermsDays">
+      <div className="form-group">
+        <label className="form-label" htmlFor="paymentTermsDays">
           {t(`${prefix}.paymentTerms` as "cust.paymentTerms")}
         </label>
         <input
@@ -107,7 +105,7 @@ export async function PartyFields({
           type="number"
           min={0}
           defaultValue={defaults?.paymentTermsDays ?? 30}
-          className={inputCls}
+          className="input"
         />
       </div>
     </div>

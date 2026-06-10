@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Project Name**: SHIME (締)
 - **Start Date**: 2026-06-10T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Monorepo migration complete; Build and Test pending
+- **Current Stage**: CONSTRUCTION - Document Model Refactor complete
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -46,7 +46,10 @@
 
 ### CONSTRUCTION PHASE
 - [x] MVP-1 Code Generation — Completed 2026-06-10
-- [ ] Build and Test — Pending
+- [x] UI Shell & Theme — Completed 2026-06-10
+- [x] MVP-2 JCT — Completed 2026-06-10
+- [x] Document Model Refactor (PO/SO/Expenses/Ledger) — Completed 2026-06-10
+- [x] Build and Test — Verified (`pnpm db:migrate`, `pnpm build`)
 - [ ] Production Hardening — Planned (FR-NEXT)
 
 ### OPERATIONS PHASE

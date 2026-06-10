@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { and, desc, eq, gte, lt } from "drizzle-orm";
-import { db, purchaseOrders, suppliers } from "@shime/db";
+import { db, purchaseOrders } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT, type TKey } from "@/lib/i18n";
 import { formatDate, formatYen } from "@shime/shared";
+import { poBadgeVariant } from "@/components/TypeBadge";
+import { PageToolbar } from "@/components/ui/PageToolbar";
+import { ButtonLink } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { DataTable } from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/Badge";
 
 export default async function PurchaseOrdersPage({
   searchParams,
@@ -25,95 +31,91 @@ export default async function PurchaseOrdersPage({
   const list = await db.query.purchaseOrders.findMany({
     where: and(...conditions),
     orderBy: [desc(purchaseOrders.issueDate)],
-    with: { supplier: { columns: { name: true } } },
+    with: { supplier: { columns: { name: true, code: true } } },
   });
 
-  const statuses = [
-    "DRAFT",
-    "SENT",
-    "PARTIALLY_RECEIVED",
-    "CLOSED",
-    "CANCELLED",
-  ] as const;
+  const statuses = ["DRAFT", "POSTED", "VOID", "CANCELLED"] as const;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{t("po.title")}</h1>
-        <Link
-          href="/purchase-orders/new"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          + {t("po.new")}
-        </Link>
-      </div>
+    <div className="stack-lg">
+      <PageToolbar
+        title={t("po.title")}
+        actions={
+          <ButtonLink href="/purchase-orders/new" variant="primary">
+            + {t("po.new")}
+          </ButtonLink>
+        }
+      />
 
-      <form
-        method="GET"
-        className="flex flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      <Card>
+        <form method="GET" className="filter-bar">
+          <input
+            type="number"
+            name="year"
+            defaultValue={year}
+            className="input"
+            style={{ width: "6rem" }}
+          />
+          <select name="status" defaultValue={status ?? ""} className="select">
+            <option value="">{t("tx.allTypes")}</option>
+            {statuses.map((s) => (
+              <option key={s} value={s}>
+                {t(`po.status.${s}` as TKey)}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="btn btn-muted">
+            {t("tx.filter")}
+          </button>
+        </form>
+      </Card>
+
+      <DataTable
+        empty={
+          list.length === 0 ? (
+            <div className="empty-state">{t("po.empty")}</div>
+          ) : undefined
+        }
       >
-        <input
-          type="number"
-          name="year"
-          defaultValue={year}
-          className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
-        <select
-          name="status"
-          defaultValue={status ?? ""}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
-          <option value="">{t("tx.allTypes")}</option>
-          {statuses.map((s) => (
-            <option key={s} value={s}>
-              {t(`po.status.${s}` as TKey)}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-        >
-          {t("tx.filter")}
-        </button>
-      </form>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {list.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-slate-500">{t("po.empty")}</div>
-        ) : (
-          <table className="w-full text-sm">
+        {list.length > 0 ? (
+          <>
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-5 py-3">{t("po.number")}</th>
-                <th className="px-3 py-3">{t("po.supplier")}</th>
-                <th className="px-3 py-3">{t("po.issueDate")}</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-5 py-3 text-right">{t("inv.total")}</th>
+              <tr>
+                <th>{t("po.number")}</th>
+                <th>{t("ledger.code")}</th>
+                <th>{t("po.supplier")}</th>
+                <th>{t("po.issueDate")}</th>
+                <th>Status</th>
+                <th className="text-right">{t("inv.total")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {list.map((po) => (
-                <tr key={po.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-3 font-medium">
-                    <Link href={`/purchase-orders/${po.id}`} className="hover:underline">
+                <tr key={po.id}>
+                  <td style={{ fontWeight: 600 }}>
+                    <Link href={`/purchase-orders/${po.id}`} className="data-row-link">
                       {po.number}
                     </Link>
                   </td>
-                  <td className="px-3 py-3">{po.supplier.name}</td>
-                  <td className="px-3 py-3 tabular-nums text-slate-500">
+                  <td className="muted">{po.supplier.code ?? "—"}</td>
+                  <td>{po.supplier.name}</td>
+                  <td className="tabular-nums muted">
                     {formatDate(po.issueDate, lang)}
                   </td>
-                  <td className="px-3 py-3">{t(`po.status.${po.status}` as TKey)}</td>
-                  <td className="px-5 py-3 text-right font-semibold tabular-nums">
+                  <td>
+                    <Badge variant={poBadgeVariant(po.status)}>
+                      {t(`po.status.${po.status}` as TKey)}
+                    </Badge>
+                  </td>
+                  <td className="text-right tabular-nums" style={{ fontWeight: 600 }}>
                     {formatYen(po.totalAmount, lang)}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
+          </>
+        ) : null}
+      </DataTable>
     </div>
   );
 }

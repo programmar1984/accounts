@@ -15,6 +15,20 @@
       "when": 1781093200000,
       "tag": "0001_mvp1_counterparties",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781093300000,
+      "tag": "0002_jct_mvp2",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781093400000,
+      "tag": "0004_document_model",
+      "breakpoints": true
     }
   ]
 }

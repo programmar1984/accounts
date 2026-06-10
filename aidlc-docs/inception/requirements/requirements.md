@@ -33,7 +33,8 @@ SHIME (締) targets small businesses in Japan with bilingual bookkeeping. The **
 |------|---------|
 | Receipt upload | User-uploaded proof file attached to a transaction or PO |
 | Invoice issuance | SHIME-generated numbered PDF invoice (MVP-1) |
-| Ledger transaction | SALE / PURCHASE / EXPENSE entry (money in/out) |
+| Ledger entry | Posted document (PO, Sales Order, Expense) or legacy transaction |
+| Sales Order | Customer invoice document (UI rename of Invoice; DB table `Invoice`) |
 
 ## Functional Requirements — Implemented (MVP-0)
 
@@ -46,16 +47,16 @@ SHIME (締) targets small businesses in Japan with bilingual bookkeeping. The **
 | FR-AUTH-04 | Users can sign out | Implemented |
 | FR-AUTH-05 | Seeded admin user on first deploy | Implemented |
 
-### FR-TX: Transactions
+### FR-TX: Transactions (deprecated UI — legacy data only)
 | ID | Requirement | Status |
 |----|-------------|--------|
-| FR-TX-01 | Record transaction types: SALE, PURCHASE, EXPENSE | Implemented |
-| FR-TX-02 | Fields: date, counterparty, description, amount (integer JPY), memo | Implemented |
-| FR-TX-03 | Create, edit, delete transactions | Implemented |
-| FR-TX-04 | Filter list by calendar year and type | Implemented |
-| FR-TX-05 | Free-text search on counterparty, description, memo | Implemented |
-| FR-TX-06 | Show list total for current filter | Implemented |
-| FR-TX-07 | Store dates as UTC midnight of entered calendar date | Implemented |
+| FR-TX-01 | Record transaction types: SALE, PURCHASE, EXPENSE | Legacy table retained |
+| FR-TX-02 | Fields: date, counterparty, description, amount (integer JPY), memo | Legacy |
+| FR-TX-03 | Create, edit, delete transactions | **Removed from UI** — `/transactions` redirects to Ledger |
+| FR-TX-04 | Filter list by calendar year and type | Superseded by FR-LED |
+| FR-TX-05 | Free-text search on counterparty, description, memo | Superseded by FR-LED |
+| FR-TX-06 | Show list total for current filter | Superseded by FR-LED |
+| FR-TX-07 | Store dates as UTC midnight of entered calendar date | Retained on legacy rows |
 
 ### FR-ATT: Attachments
 | ID | Requirement | Status |
@@ -71,7 +72,7 @@ SHIME (締) targets small businesses in Japan with bilingual bookkeeping. The **
 |----|-------------|--------|
 | FR-DASH-01 | Per-year totals: sales, purchases, expenses, net | Implemented |
 | FR-DASH-02 | Year selector | Implemented |
-| FR-DASH-03 | Six most recent transactions with attachment indicator | Implemented |
+| FR-DASH-03 | Six most recent ledger entries (posted documents) | Implemented |
 
 ### FR-USER: User Administration
 | ID | Requirement | Status |
@@ -105,33 +106,55 @@ SHIME (締) targets small businesses in Japan with bilingual bookkeeping. The **
 | FR-SUPP-02 | Activate/deactivate suppliers | Implemented |
 | FR-SUPP-03 | Link PURCHASE transactions and POs via supplierId | Implemented |
 
-### FR-INV: Invoice issuance (simple PDF)
+### FR-SO: Sales Orders (evolved from Invoices)
 | ID | Requirement | Status |
 |----|-------------|--------|
-| FR-INV-01 | Draft invoice with line items for a customer | Implemented |
-| FR-INV-02 | Auto-number invoices INV-YYYY-NNNN | Implemented |
-| FR-INV-03 | Issue invoice → generate PDF (pdfkit) | Implemented |
-| FR-INV-04 | Optional SALE transaction on issue | Implemented |
-| FR-INV-05 | Void issued invoice | Implemented |
-| FR-INV-06 | Filter invoices by year, customer, status | Implemented |
+| FR-SO-01 | Draft sales order with line items for a customer | Implemented |
+| FR-SO-02 | Auto-number SO-YYYY-NNNN (legacy INV- counted) | Implemented |
+| FR-SO-03 | Issue → generate PDF (pdfkit); no transaction row created | Implemented |
+| FR-SO-04 | Void issued sales order | Implemented |
+| FR-SO-05 | Filter by year, customer, status at `/sales-orders` | Implemented |
+| FR-SO-06 | Per-line tax rate (10% / 8% / 0%); header bucket rounding | Implemented |
+| FR-SO-07 | Payment tracking on document (dueDate, amountPaid, paymentStatus) | Implemented |
+| FR-SO-08 | `/invoices` routes redirect to `/sales-orders` | Implemented |
 
-### FR-PO: Purchase orders
+### FR-PO: Purchase orders (bill recording)
 | ID | Requirement | Status |
 |----|-------------|--------|
-| FR-PO-01 | Draft PO with line items for a supplier | Implemented |
+| FR-PO-01 | Draft PO with line items for a supplier (required) | Implemented |
 | FR-PO-02 | Auto-number PO-YYYY-NNNN | Implemented |
-| FR-PO-03 | Lifecycle: DRAFT → SENT → PARTIALLY_RECEIVED → CLOSED | Implemented |
-| FR-PO-04 | Cancel PO from draft/sent/partial | Implemented |
-| FR-PO-05 | Record partial/full receipt per line (qtyReceived) | Implemented |
-| FR-PO-06 | Create PURCHASE transaction on receipt | Implemented |
+| FR-PO-03 | Lifecycle: DRAFT → POSTED (+ VOID, CANCELLED) | Implemented |
+| FR-PO-04 | Cancel PO from draft | Implemented |
+| FR-PO-05 | Post PO to ledger (no send/receive workflow) | Implemented |
+| FR-PO-06 | No transaction row on post | Implemented |
 | FR-PO-07 | Upload receipt attachments to PO | Implemented |
+| FR-PO-08 | Per-line tax rate; payment on posted PO | Implemented |
+
+### FR-EXP: Expenses
+| ID | Requirement | Status |
+|----|-------------|--------|
+| FR-EXP-01 | Draft expense with optional supplier | Implemented |
+| FR-EXP-02 | Auto-number EXP-YYYY-NNNN | Implemented |
+| FR-EXP-03 | Line items with per-line tax rate | Implemented |
+| FR-EXP-04 | Post / void lifecycle | Implemented |
+| FR-EXP-05 | Receipt attachments | Implemented |
+| FR-EXP-06 | Payment tracking when posted | Implemented |
+
+### FR-LED: Ledger (unified view)
+| ID | Requirement | Status |
+|----|-------------|--------|
+| FR-LED-01 | Unified list of POSTED POs, ISSUED SOs, POSTED Expenses | Implemented |
+| FR-LED-02 | Party **code** column from Customer/Supplier master | Implemented |
+| FR-LED-03 | Filter by year, document type, payment status, search | Implemented |
+| FR-LED-04 | Row links to document detail | Implemented |
+| FR-LED-05 | Replaces Transactions in navigation | Implemented |
 
 ### FR-PAY: Payment tracking
 | ID | Requirement | Status |
 |----|-------------|--------|
-| FR-PAY-01 | dueDate on transactions | Implemented |
+| FR-PAY-01 | dueDate on documents (PO, SO, Expense) | Implemented |
 | FR-PAY-02 | amountPaid and paymentStatus UNPAID/PARTIAL/PAID | Implemented |
-| FR-PAY-03 | Record payment on transaction detail | Implemented |
+| FR-PAY-03 | Record payment on document detail | Implemented |
 
 ---
 
@@ -235,8 +258,35 @@ SHIME (締) targets small businesses in Japan with bilingual bookkeeping. The **
 
 ---
 
+## Functional Requirements — UI Shell & Theme (FR-UI)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-UI-01 | AdminLTE-inspired shell: fixed sidebar, sticky topbar, responsive collapse at 992px | Must |
+| FR-UI-02 | Semantic color tokens (primary, success, warning, danger, info, secondary, light, dark) for buttons, cards, badges, alerts | Must |
+| FR-UI-03 | Light/dark mode toggle persisted in `shime_theme` cookie | Must |
+| FR-UI-04 | Sidebar brand: **SHIME** expanded, **SM** when collapsed; no logo image | Must |
+| FR-UI-05 | Bilingual UI labels for nav, theme toggle, shell chrome (EN/JA) | Must |
+| FR-UI-06 | Shared UI primitives (Button, Card, Alert, Badge, PageToolbar, DataTable) for consistent styling | Must |
+
+---
+
+## Functional Requirements — Consumption Tax MVP-2 (FR-JCT)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-JCT-01 | Tenant setting: 免税事業者 (EXEMPT) vs 課税事業者 (TAXABLE) | Must |
+| FR-JCT-02 | When TAXABLE: document headers store subtotalExTax, totalTax, totalAmount | Must |
+| FR-JCT-03 | When TAXABLE: tax rate per line on SO/PO/Expense; header rounding per rate bucket | Must |
+| FR-JCT-04 | Company settings: T+13 registration number, price basis, tax rounding method | Must |
+| FR-JCT-05 | Dashboard JCT summary: output tax, input tax, estimated net (draft) | Must |
+| FR-JCT-06 | Invoice PDF shows tax breakdown when taxable | Must |
+| FR-JCT-07 | Exempt mode hides tax UI; amounts remain gross-only | Must |
+| FR-JCT-08 | Draft disclaimer: figures require 税理士 review | Must |
+
+---
+
 ## Out of Scope (Current Inception)
 
-- Code changes to application
-- Construction phase execution
 - Operations / deployment automation
+- Full 適格請求書 compliance, NTA API, 80%/50% credit rules, journal 仮払/仮受消費税 (MVP-2)
