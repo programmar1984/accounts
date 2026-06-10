@@ -1,0 +1,19 @@
+{
+  "name": "@shime/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo ok",
+    "lint": "echo ok"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.0.4"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

@@ -1,80 +1,95 @@
 # SHIME (締) — Simple Bookkeeping for Small Businesses in Japan
 
-First MVP: record a full year of **sales (売上) / purchases (仕入) / expenses (経費)** and attach **receipts & invoices** to each transaction. Bilingual UI (English / 日本語). Seeded admin user who can create more users.
+## MVP-0 (ledger + receipt uploads)
 
-The long-term product vision (compliance engine, year-end closing, tax output) is documented in [`docs/REQUIREMENTS_RESEARCH.md`](docs/REQUIREMENTS_RESEARCH.md) — this MVP intentionally defers all of that.
+Record a full year of **sales (売上) / purchases (仕入) / expenses (経費)** and attach **uploaded receipt/evidence files** (images/PDF) to each transaction. Bilingual UI (English / 日本語). Seeded admin user who can create more users.
 
-## Features (MVP-0)
+**Note:** Uploading a receipt or scanned invoice is **not** the same as **issuing** a sales invoice from SHIME.
 
-- **Authentication** — email + password sessions (signed HTTP-only cookie). A seeded **admin** can create/deactivate users (admin or member role).
-- **Transactions** — type (sale / purchase / expense), date, counterparty, description, amount (integer JPY), memo. Filter by year and type, free-text search, yearly totals.
-- **Attachments** — upload images/PDFs (up to 15 MB each) against any transaction; view inline or download; auth-gated file serving.
-- **Dashboard** — per-year totals: sales, purchases, expenses, and net.
-- **Language toggle** — English / Japanese across the entire UI.
+## MVP-1 (counterparties, invoices, POs, payments)
+
+- **Customers** — master data for buyers; link to sales and invoices
+- **Suppliers** — master data for vendors; link to purchases and POs
+- **Invoices** — create numbered draft invoices with line items; issue as PDF; optional linked SALE transaction
+- **Purchase orders** — full workflow: draft → sent → partially received → closed; receipt uploads; creates PURCHASE on receive
+- **Payment tracking** — due date, amount paid, unpaid / partial / paid on transactions
+
+The long-term product vision (compliance engine, year-end closing, tax output) is in [`docs/REQUIREMENTS_RESEARCH.md`](docs/REQUIREMENTS_RESEARCH.md).
+
+## Features
+
+- **Authentication** — email + password sessions (signed HTTP-only cookie). Admin can create/deactivate users.
+- **Transactions** — SALE (money in), PURCHASE / EXPENSE (money out); payment status; customer/supplier links
+- **Attachments** — upload proof documents to transactions or POs (up to 15 MB)
+- **Dashboard** — per-year totals: sales, purchases, expenses, net
+- **Language toggle** — English / Japanese
 
 ## Stack
 
-- Next.js (App Router, server actions) + TypeScript + Tailwind CSS
-- Drizzle ORM + PostgreSQL (local dev; same engine as the target multi-tenant SaaS)
-- Local `uploads/` directory for files (S3-compatible storage later)
+- **Monorepo**: pnpm workspaces
+- **App**: Next.js 16 (App Router, server actions) + TypeScript + Tailwind CSS 4
+- **Database**: Drizzle ORM + PostgreSQL (`@shime/db`)
+- **Shared utilities**: `@shime/shared` (formatting, payment status, PO status)
+- pdfkit for invoice PDF generation
+- Local `apps/web/uploads/` for files (S3 later)
+
+## Monorepo structure
+
+```text
+apps/web/              @shime/web — Next.js application
+packages/db/           @shime/db — schema, client, migrations, seed
+packages/shared/       @shime/shared — pure utilities
+docs/                  Product vision research
+aidlc-docs/            AI-DLC architecture and requirements
+```
 
 ## Getting started
 
-**Prerequisites:** PostgreSQL running locally (default `localhost:5432`).
+**Prerequisites:** Node.js 20+, pnpm 9+, PostgreSQL on `localhost:5432`.
 
 ```bash
-npm install
-cp .env.example .env          # adjust DATABASE_URL and AUTH_SECRET; optionally SEED_ADMIN_* vars
+pnpm install
+cp .env.example .env
 
-# Create the database once (psql or any client):
-#   CREATE DATABASE shime;
+# CREATE DATABASE shime;
 
-npm run db:migrate            # apply migrations
-npm run db:seed               # seeds the admin user
-npm run dev                   # http://localhost:3000
+pnpm db:migrate
+pnpm db:seed
+pnpm dev                   # http://localhost:3000
 ```
 
-Default seeded admin (override with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` in `.env` before seeding):
+Default admin: `admin@shime.local` / `admin1234` (override via `SEED_ADMIN_*` in `.env`).
 
-| Email | Password |
-|---|---|
-| `admin@shime.local` | `admin1234` |
+`.env` lives at the **repository root** and is loaded by both the web app and database package.
 
-Change the password/secret before deploying anywhere public.
-
-## Database (Drizzle ORM)
-
-Schema lives in `lib/db/schema.ts`. Migrations are generated and applied with [Drizzle Kit](https://orm.drizzle.team/):
+## Commands (from repository root)
 
 | Command | Purpose |
 |---|---|
-| `npm run db:migrate` | Apply migrations to PostgreSQL |
-| `npm run db:seed` | Seed the admin user |
-| `npm run db:generate` | Generate a migration after schema changes |
-| `npm run db:push` | Push schema directly (local dev only) |
-| `npm run db:studio` | Open Drizzle Studio |
+| `pnpm dev` | Start Next.js dev server (`@shime/web`) |
+| `pnpm build` | Build all workspace packages |
+| `pnpm start` | Start production server |
+| `pnpm lint` | Lint all packages |
+| `pnpm db:migrate` | Apply migrations |
+| `pnpm db:seed` | Seed admin user |
+| `pnpm db:generate` | Generate migration after schema changes |
+| `pnpm db:push` | Push schema directly (dev only) |
+| `pnpm db:studio` | Open Drizzle Studio |
 
-`DATABASE_URL` in `.env` defaults to `postgresql://postgres:ammars@localhost:5432/shime`.
-
-## Project structure
+## Application routes (`apps/web/app/`)
 
 ```
-app/                  Next.js routes
-  login/              sign-in page
-  (app)/              authenticated area: dashboard, transactions, users
-  api/files/[id]/     auth-gated attachment serving
-components/           shared UI components
-lib/                  auth/session, i18n dictionaries, server actions, file storage
-  db/                 Drizzle schema (`schema.ts`)
-  db.ts               Drizzle client (postgres.js)
-drizzle/              SQL migrations & seed script
-drizzle.config.ts     Drizzle Kit config
-docs/                 research & requirements (full platform vision)
-uploads/              uploaded receipt/invoice files (gitignored)
+(app)/
+  customers/          Customer CRUD
+  suppliers/          Supplier CRUD
+  invoices/           Invoice drafts + PDF issue
+  purchase-orders/    PO workflow
+  transactions/       Ledger entries
+  users/              Admin user management
 ```
 
 ## Notes
 
-- Amounts are stored as **integer yen** (JPY has no fractional unit). No floating point in money paths.
-- Transaction dates are stored as UTC midnight of the calendar date entered.
-- Deactivated users are locked out on their next request even with a live session cookie.
+- Amounts are integer JPY (no fractional unit).
+- Invoice PDFs are simple documents — not Japanese 適格請求書 compliant yet.
+- Deactivated users are locked out on next request.

@@ -1,0 +1,31 @@
+{
+  "name": "@shime/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo ok",
+    "lint": "echo ok",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "push": "drizzle-kit push",
+    "seed": "tsx drizzle/seed.ts",
+    "studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@shime/shared": "workspace:*",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
+    "drizzle-kit": "^0.31.9",
+    "tsx": "^4.22.4",
+    "typescript": "^5"
+  }
+}

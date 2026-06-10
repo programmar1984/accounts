@@ -15,7 +15,9 @@
 
 # next.js
 /.next/
+/apps/web/.next/
 /out/
+/apps/web/out/
 
 # production
 /build
@@ -43,3 +45,5 @@ next-env.d.ts
 
 # uploaded files
 /uploads
+/apps/web/uploads
+**/uploads
