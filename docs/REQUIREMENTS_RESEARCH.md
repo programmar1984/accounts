@@ -848,9 +848,21 @@ Interim mobile answer for MVP: **responsive web + "email-this-receipt" ingestion
 
 # Module 7 — Development Plan: Phases, MVPs & Milestones
 
-> Sequencing principle: **compliance-bearing foundations first** (ledger immutability, document vault, tax dimensions), then the daily-use loop (because year-end quality is a function of daily data quality), then the closing/tax engine, then filing-format automation, then mobile/AI. Each phase ends with a usable product increment and a named milestone with exit criteria.
+> Sequencing principle (revised): **start with the founder's own business as tenant #1.** The first shipped increment is a deliberately simple single-business ledger (MVP-0) — record a year of buying/selling/expenses with receipts/invoices attached, seeded admin + user management — deferring the compliance engine. Compliance-bearing foundations follow, then the daily-use loop, the closing/tax engine, filing-format automation, and finally mobile/AI. Each phase ends with a usable product increment and a named milestone with exit criteria.
 
-## Phase 0 — Foundation & Compliance Design (Milestone M0: "Blueprint frozen")
+## Phase 0a — MVP-0 "My Own Books" (Milestone M-0: founder's business runs on it) — ✅ BUILT
+
+The smallest useful system, dogfooded on the founder's own business before any compliance machinery:
+
+- Seeded **admin** user; admin can create/deactivate users (admin/member roles); cookie-session auth.
+- **Transactions** for the entire year: type (sale 売上 / purchase 仕入 / expense 経費), date, counterparty, description, integer-JPY amount, memo; year/type filters, search, yearly totals dashboard.
+- **Receipts & invoices uploaded against each transaction** (images/PDF), auth-gated viewing/download — the seed of the future Denchōhō document vault.
+- Bilingual UI (EN/JA) from day one.
+- Stack (intentionally lighter than the target architecture, but on the migration path): Next.js + TypeScript + Prisma; SQLite locally (schema portable to PostgreSQL); local file storage (→ S3/WORM later).
+
+Exit criteria: a full year of the founder's real transactions entered with documents attached; second user onboarded by the admin.
+
+## Phase 0b — Foundation & Compliance Design (Milestone M0: "Blueprint frozen")
 
 Scope:
 
