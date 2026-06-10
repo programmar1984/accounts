@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  passwordHash String
+  role         String        @default("MEMBER") // ADMIN | MEMBER
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  attachments  Attachment[]
+}
+
+model Transaction {
+  id           String       @id @default(cuid())
+  type         String // SALE | PURCHASE | EXPENSE
+  date         DateTime
+  counterparty String
+  description  String       @default("")
+  amount       Int // JPY — integer yen, no fractional unit
+  memo         String?
+  createdBy    User         @relation(fields: [createdById], references: [id])
+  createdById  String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  attachments  Attachment[]
+
+  @@index([date])
+  @@index([type, date])
+}
+
+model Attachment {
+  id            String      @id @default(cuid())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionId String
+  originalName  String
+  storedName    String      @unique
+  mimeType      String
+  size          Int
+  uploadedBy    User        @relation(fields: [uploadedById], references: [id])
+  uploadedById  String
+  createdAt     DateTime    @default(now())
+}
