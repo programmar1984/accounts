@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, purchaseOrderLines, purchaseOrders } from "@shime/db";
@@ -14,7 +15,8 @@ import {
   voidPurchaseOrder,
 } from "@/lib/actions-purchase-orders";
 import { getCompanySettings } from "@/lib/company-settings";
-import { LineItemsEditor } from "@/components/LineItemsEditor";
+import { PoLineItemsEditor } from "@/components/PoLineItemsEditor";
+import { getPoLineDescriptionSuggestions } from "@/lib/po-line-suggestions";
 import { canCancelPo, canPostPo, canVoidPo, type TaxRate } from "@shime/shared";
 import { PageToolbar } from "@/components/ui/PageToolbar";
 import { ButtonLink } from "@/components/ui/Button";
@@ -43,21 +45,24 @@ export default async function PurchaseOrderDetailPage({
   const settings = await getCompanySettings();
   const taxable = settings.jctStatus === "TAXABLE";
 
-  const po = await db.query.purchaseOrders.findFirst({
-    where: eq(purchaseOrders.id, id),
-    with: {
-      supplier: true,
-      lines: { orderBy: asc(purchaseOrderLines.sortOrder) },
-      attachments: true,
-    },
-  });
+  const [po, lineSuggestions] = await Promise.all([
+    db.query.purchaseOrders.findFirst({
+      where: eq(purchaseOrders.id, id),
+      with: {
+        supplier: true,
+        lines: { orderBy: asc(purchaseOrderLines.sortOrder) },
+        attachments: true,
+      },
+    }),
+    getPoLineDescriptionSuggestions(),
+  ]);
   if (!po) notFound();
 
   const isDraft = po.status === "DRAFT";
   const isPosted = po.status === "POSTED";
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar
         title={po.number}
         subtitle={`${t(`po.status.${po.status}` as TKey)} · ${po.supplier.name}${po.supplier.code ? ` (${po.supplier.code})` : ""}`}
@@ -79,13 +84,13 @@ export default async function PurchaseOrderDetailPage({
       {isPosted && (
         <Card>
           <CardBody>
-            <p>
-              <span className="muted">{t("po.paymentStatus")}: </span>
+            <p className="payment-status-line">
+              <span className="muted">{t("po.paymentStatus")}:</span>
               <Badge variant={paymentBadgeVariant(po.paymentStatus)}>
                 {t(`pay.${po.paymentStatus}` as TKey)}
               </Badge>
-              <span className="muted" style={{ marginLeft: "1rem" }}>
-                {po.amountPaid} / {po.totalAmount} ¥
+              <span className="tabular-nums">
+                {formatYen(po.amountPaid, lang)} / {formatYen(po.totalAmount, lang)}
               </span>
             </p>
           </CardBody>
@@ -97,7 +102,7 @@ export default async function PurchaseOrderDetailPage({
           <CardBody>
             <form action={updatePurchaseOrder} className="stack">
               <input type="hidden" name="id" value={po.id} />
-              <div className="form-grid form-grid-2">
+              <div className="form-grid form-grid-header">
                 <div className="form-group">
                   <label className="form-label">{t("po.issueDate")}</label>
                   <input
@@ -120,7 +125,18 @@ export default async function PurchaseOrderDetailPage({
               </div>
               <div className="form-group">
                 <label className="form-label">{t("po.lines")}</label>
-                <LineItemsEditor
+                {!taxable && (
+                  <div style={{ marginBottom: "0.75rem" }}>
+                    <Alert variant="info">
+                      {t("po.taxExemptHint")}{" "}
+                      <Link href="/settings/tax">{t("po.taxExemptHintLink")}</Link>
+                    </Alert>
+                  </div>
+                )}
+                <PoLineItemsEditor
+                  allSuggestions={lineSuggestions}
+                  fixedSupplierId={po.supplierId}
+                  suggestionsLabel={t("line.suggestions")}
                   taxable={taxable}
                   defaultTaxRate={settings.defaultTaxRate as TaxRate}
                   unitPriceLabel={
@@ -141,6 +157,9 @@ export default async function PurchaseOrderDetailPage({
                     quantity: t("line.qty"),
                     unitPrice: t("line.unitPrice"),
                     taxRate: t("tax.rate"),
+                    taxable: t("line.taxable"),
+                    nonTaxable: t("line.nonTaxable"),
+                    rate: t("line.rate"),
                     rate10: t("tax.rate10"),
                     rate8: t("tax.rate8"),
                     rate0: t("tax.rate0"),

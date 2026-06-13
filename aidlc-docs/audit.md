@@ -112,3 +112,20 @@ To-do's from the plan have already been created. Do not create them again. Mark 
 **Context**: CONSTRUCTION - Document Model Refactor
 
 ---
+
+## Service Orders (SVO) — User Request
+**Timestamp**: 2026-06-10T22:00:00Z
+**User Input**: "Service Order (AI-DLC) Plan — Implement the plan as specified"
+**AI Response**: "Added ServiceOrder/ServiceOrderLine schema, migration 0005 with 8 PO→SVO conversions, actions and UI routes, ledger integration (Purchase column + JCT input tax), i18n EN/JA, AI-DLC inception docs."
+**Context**: CONSTRUCTION - Service Orders
+
+---
+
+## Terminology — Supplier → Vendor
+**Timestamp**: 2026-06-13T00:00:00Z
+**User Input**: "Using AI-DLC, change the name Supplier to Vendors (check the translation to match it as well whatever the japanese of vendors is)"
+**Decision**: User-facing label **Vendor / Vendors** (EN); **ベンダー** (JA). Internal routes (`/suppliers`), i18n keys (`supp.*`, `nav.suppliers`), and DB table `Supplier` unchanged to avoid migration churn.
+**AI Response**: "Updated i18n EN/JA, README, requirements FR-SUPP section."
+**Context**: CONSTRUCTION - Terminology
+
+---

@@ -24,6 +24,10 @@ export function poBadgeVariant(status: string): BadgeVariant {
   return "secondary";
 }
 
+export function svoBadgeVariant(status: string): BadgeVariant {
+  return poBadgeVariant(status);
+}
+
 export function expenseBadgeVariant(status: string): BadgeVariant {
   if (status === "POSTED") return "success";
   if (status === "VOID") return "danger";

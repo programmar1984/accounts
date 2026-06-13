@@ -54,7 +54,7 @@ export default async function ExpenseDetailPage({
   const isPosted = exp.status === "POSTED";
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar
         title={exp.number}
         subtitle={`${t(`exp.status.${exp.status}` as TKey)}${exp.supplier ? ` · ${exp.supplier.name}` : ""}`}
@@ -74,13 +74,13 @@ export default async function ExpenseDetailPage({
       {isPosted && (
         <Card>
           <CardBody>
-            <p>
-              <span className="muted">{t("exp.paymentStatus")}: </span>
+            <p className="payment-status-line">
+              <span className="muted">{t("exp.paymentStatus")}:</span>
               <Badge variant={paymentBadgeVariant(exp.paymentStatus)}>
                 {t(`pay.${exp.paymentStatus}` as TKey)}
               </Badge>
-              <span className="muted" style={{ marginLeft: "1rem" }}>
-                {exp.amountPaid} / {exp.totalAmount} ¥
+              <span className="tabular-nums">
+                {formatYen(exp.amountPaid, lang)} / {formatYen(exp.totalAmount, lang)}
               </span>
             </p>
           </CardBody>
@@ -92,7 +92,7 @@ export default async function ExpenseDetailPage({
           <CardBody>
             <form action={updateExpense} className="stack">
               <input type="hidden" name="id" value={exp.id} />
-              <div className="form-grid form-grid-2">
+              <div className="form-grid form-grid-header">
                 <div className="form-group">
                   <label className="form-label">{t("exp.supplier")}</label>
                   <select name="supplierId" defaultValue={exp.supplierId ?? ""} className="select">

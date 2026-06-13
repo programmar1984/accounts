@@ -227,6 +227,64 @@ export const purchaseOrderLines = pgTable(
   ]
 );
 
+export const serviceOrders = pgTable(
+  "ServiceOrder",
+  {
+    id: text("id").primaryKey(),
+    number: text("number").notNull(),
+    supplierId: text("supplierId")
+      .notNull()
+      .references(() => suppliers.id),
+    serviceCategory: text("serviceCategory").notNull(),
+    status: text("status").notNull().default("DRAFT"),
+    issueDate: timestamp("issueDate", { mode: "date" }).notNull(),
+    dueDate: timestamp("dueDate", { mode: "date" }),
+    notes: text("notes"),
+    subtotalExTax: integer("subtotalExTax").notNull().default(0),
+    totalTax: integer("totalTax").notNull().default(0),
+    totalAmount: integer("totalAmount").notNull().default(0),
+    paymentStatus: text("paymentStatus").notNull().default("UNPAID"),
+    amountPaid: integer("amountPaid").notNull().default(0),
+    postedAt: timestamp("postedAt", { mode: "date" }),
+    createdById: text("createdById")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("createdAt", { mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("ServiceOrder_number_key").on(table.number),
+    index("ServiceOrder_supplierId_idx").on(table.supplierId),
+    index("ServiceOrder_status_idx").on(table.status),
+    index("ServiceOrder_issueDate_idx").on(table.issueDate),
+  ]
+);
+
+export const serviceOrderLines = pgTable(
+  "ServiceOrderLine",
+  {
+    id: text("id").primaryKey(),
+    serviceOrderId: text("serviceOrderId")
+      .notNull()
+      .references(() => serviceOrders.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    unitPrice: integer("unitPrice").notNull(),
+    lineTotal: integer("lineTotal").notNull(),
+    taxRate: integer("taxRate").notNull().default(10),
+    taxAmount: integer("taxAmount").notNull().default(0),
+    lineTotalExTax: integer("lineTotalExTax").notNull().default(0),
+    sortOrder: integer("sortOrder").notNull().default(0),
+  },
+  (table) => [
+    index("ServiceOrderLine_serviceOrderId_idx").on(table.serviceOrderId),
+  ]
+);
+
 export const expenses = pgTable(
   "Expense",
   {
@@ -295,6 +353,9 @@ export const attachments = pgTable(
     expenseId: text("expenseId").references(() => expenses.id, {
       onDelete: "cascade",
     }),
+    serviceOrderId: text("serviceOrderId").references(() => serviceOrders.id, {
+      onDelete: "cascade",
+    }),
     originalName: text("originalName").notNull(),
     storedName: text("storedName").notNull(),
     mimeType: text("mimeType").notNull(),
@@ -314,6 +375,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   attachments: many(attachments),
   invoices: many(invoices),
   purchaseOrders: many(purchaseOrders),
+  serviceOrders: many(serviceOrders),
   expenses: many(expenses),
 }));
 
@@ -325,6 +387,7 @@ export const customersRelations = relations(customers, ({ many }) => ({
 export const suppliersRelations = relations(suppliers, ({ many }) => ({
   transactions: many(transactions),
   purchaseOrders: many(purchaseOrders),
+  serviceOrders: many(serviceOrders),
   expenses: many(expenses),
 }));
 
@@ -393,6 +456,32 @@ export const purchaseOrderLinesRelations = relations(
   })
 );
 
+export const serviceOrdersRelations = relations(
+  serviceOrders,
+  ({ one, many }) => ({
+    supplier: one(suppliers, {
+      fields: [serviceOrders.supplierId],
+      references: [suppliers.id],
+    }),
+    createdBy: one(users, {
+      fields: [serviceOrders.createdById],
+      references: [users.id],
+    }),
+    lines: many(serviceOrderLines),
+    attachments: many(attachments),
+  })
+);
+
+export const serviceOrderLinesRelations = relations(
+  serviceOrderLines,
+  ({ one }) => ({
+    serviceOrder: one(serviceOrders, {
+      fields: [serviceOrderLines.serviceOrderId],
+      references: [serviceOrders.id],
+    }),
+  })
+);
+
 export const expensesRelations = relations(expenses, ({ one, many }) => ({
   supplier: one(suppliers, {
     fields: [expenses.supplierId],
@@ -425,6 +514,10 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
   expense: one(expenses, {
     fields: [attachments.expenseId],
     references: [expenses.id],
+  }),
+  serviceOrder: one(serviceOrders, {
+    fields: [attachments.serviceOrderId],
+    references: [serviceOrders.id],
   }),
   uploadedBy: one(users, {
     fields: [attachments.uploadedById],

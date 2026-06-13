@@ -45,7 +45,7 @@ export default async function SalesOrderDetailPage({
   const isIssued = so.status === "ISSUED";
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar
         title={so.number}
         subtitle={`${t(`so.status.${so.status}` as TKey)} · ${so.customer.name}${so.customer.code ? ` (${so.customer.code})` : ""}`}
@@ -65,13 +65,13 @@ export default async function SalesOrderDetailPage({
       {isIssued && (
         <Card>
           <CardBody>
-            <p>
-              <span className="muted">{t("so.paymentStatus")}: </span>
+            <p className="payment-status-line">
+              <span className="muted">{t("so.paymentStatus")}:</span>
               <Badge variant={paymentBadgeVariant(so.paymentStatus)}>
                 {t(`pay.${so.paymentStatus}` as TKey)}
               </Badge>
-              <span className="muted" style={{ marginLeft: "1rem" }}>
-                {so.amountPaid} / {so.totalAmount} ¥
+              <span className="tabular-nums">
+                {formatYen(so.amountPaid, lang)} / {formatYen(so.totalAmount, lang)}
               </span>
             </p>
           </CardBody>
@@ -83,7 +83,7 @@ export default async function SalesOrderDetailPage({
           <CardBody>
             <form action={updateInvoice} className="stack">
               <input type="hidden" name="id" value={so.id} />
-              <div className="form-grid form-grid-2">
+              <div className="form-grid form-grid-header">
                 <div className="form-group">
                   <label className="form-label">{t("so.issueDate")}</label>
                   <input

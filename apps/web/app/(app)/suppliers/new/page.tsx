@@ -11,7 +11,7 @@ export default async function NewSupplierPage() {
   const { t } = await getT();
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "42rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar title={t("supp.new")} />
       <Card>
         <CardBody>

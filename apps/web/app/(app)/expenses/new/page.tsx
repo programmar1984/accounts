@@ -29,13 +29,13 @@ export default async function NewExpensePage({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar title={t("exp.new")} />
       {error === "required" && <Alert variant="danger">{t("exp.error.required")}</Alert>}
       <Card>
         <CardBody>
           <form action={createExpense} className="stack">
-            <div className="form-grid form-grid-2">
+            <div className="form-grid form-grid-header">
               <div className="form-group">
                 <label className="form-label" htmlFor="supplierId">
                   {t("exp.supplier")}

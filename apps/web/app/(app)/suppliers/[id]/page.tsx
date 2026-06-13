@@ -26,7 +26,7 @@ export default async function SupplierDetailPage({
   if (!supplier) notFound();
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "42rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar
         title={t("supp.edit")}
         actions={

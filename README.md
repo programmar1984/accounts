@@ -9,7 +9,7 @@ Record a full year of **sales (売上) / purchases (仕入) / expenses (経費)*
 ## MVP-1 (counterparties, invoices, POs, payments)
 
 - **Customers** — master data for buyers; link to sales and invoices
-- **Suppliers** — master data for vendors; link to purchases and POs
+- **Vendors** — master data for vendors; link to purchases and POs
 - **Invoices** — create numbered draft invoices with line items; issue as PDF; optional linked SALE transaction
 - **Purchase orders** — full workflow: draft → sent → partially received → closed; receipt uploads; creates PURCHASE on receive
 - **Payment tracking** — due date, amount paid, unpaid / partial / paid on transactions
@@ -19,7 +19,7 @@ The long-term product vision (compliance engine, year-end closing, tax output) i
 ## Features
 
 - **Authentication** — email + password sessions (signed HTTP-only cookie). Admin can create/deactivate users.
-- **Transactions** — SALE (money in), PURCHASE / EXPENSE (money out); payment status; customer/supplier links
+- **Transactions** — SALE (money in), PURCHASE / EXPENSE (money out); payment status; customer/vendor links
 - **Attachments** — upload proof documents to transactions or POs (up to 15 MB)
 - **Dashboard** — per-year totals: sales, purchases, expenses, net
 - **Language toggle** — English / Japanese
@@ -81,7 +81,7 @@ Default admin: `admin@shime.local` / `admin1234` (override via `SEED_ADMIN_*` in
 ```
 (app)/
   customers/          Customer CRUD
-  suppliers/          Supplier CRUD
+  suppliers/          Vendor CRUD (route unchanged; UI label: Vendors)
   invoices/           Invoice drafts + PDF issue
   purchase-orders/    PO workflow
   transactions/       Ledger entries

@@ -279,6 +279,9 @@ export async function deleteAttachment(formData: FormData) {
   } else if (attachment.purchaseOrderId) {
     revalidatePath(`/purchase-orders/${attachment.purchaseOrderId}`);
     redirect(`/purchase-orders/${attachment.purchaseOrderId}`);
+  } else if (attachment.serviceOrderId) {
+    revalidatePath(`/service-orders/${attachment.serviceOrderId}`);
+    redirect(`/service-orders/${attachment.serviceOrderId}`);
   }
 }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getCompanySettings } from "@/lib/company-settings";
 import { fetchLedgerEntries, sumLedgerAmounts, sumLedgerTax } from "@/lib/ledger";
+import { defaultDateRange } from "@/lib/list-filters";
 import { getT, type TKey } from "@/lib/i18n";
 import { formatDate, formatYen } from "@shime/shared";
 import { PageToolbar } from "@/components/ui/PageToolbar";
@@ -23,11 +24,12 @@ export default async function DashboardPage({
   const currentYear = new Date().getUTCFullYear();
   const params = await searchParams;
   const year = Number(params.year) || currentYear;
+  const { from, to } = defaultDateRange();
 
   const [amounts, tax, recent] = await Promise.all([
     sumLedgerAmounts(year),
     sumLedgerTax(year),
-    fetchLedgerEntries({ year }),
+    fetchLedgerEntries({ dateFrom: from, dateTo: to }),
   ]);
 
   const recentEntries = recent.slice(0, 6);
@@ -143,7 +145,15 @@ export default async function DashboardPage({
           <ul className="list-divider" style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {recentEntries.map((e) => (
               <li key={`${e.docType}-${e.id}`}>
-                <Link href={e.href} className="list-row">
+                <Link
+                  href={e.href}
+                  className="list-row"
+                  title={
+                    (e.docType === "PO" || e.docType === "SVO") && e.notes?.trim()
+                      ? e.notes.trim()
+                      : undefined
+                  }
+                >
                   <span className="tabular-nums muted" style={{ width: "6rem", flexShrink: 0 }}>
                     {formatDate(e.date, lang)}
                   </span>
@@ -169,7 +179,7 @@ export default async function DashboardPage({
           </ul>
         )}
         <div className="card-footer" style={{ textAlign: "right" }}>
-          <ButtonLink href={`/ledger?year=${year}`} variant="muted" size="sm">
+          <ButtonLink href="/ledger" variant="muted" size="sm">
             {t("ledger.viewAll")} →
           </ButtonLink>
         </div>

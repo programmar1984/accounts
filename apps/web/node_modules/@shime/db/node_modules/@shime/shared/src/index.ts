@@ -12,6 +12,18 @@ export {
   canVoidPo,
 } from "./po/status";
 export {
+  SVO_STATUSES,
+  type SvoStatus,
+  canPostSvo,
+  canCancelSvo,
+  canVoidSvo,
+} from "./svo/status";
+export {
+  SERVICE_CATEGORIES,
+  type ServiceCategory,
+  parseServiceCategory,
+} from "./svo/categories";
+export {
   EXPENSE_STATUSES,
   type ExpenseStatus,
   canPostExpense,

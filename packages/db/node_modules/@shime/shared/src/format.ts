@@ -1,11 +1,10 @@
 import type { Lang } from "./lang";
 
 export function formatYen(amount: number, lang: Lang = "en"): string {
-  return new Intl.NumberFormat(lang === "ja" ? "ja-JP" : "en-US", {
-    style: "currency",
-    currency: "JPY",
+  const formatted = new Intl.NumberFormat(lang === "ja" ? "ja-JP" : "en-US", {
     maximumFractionDigits: 0,
   }).format(amount);
+  return lang === "ja" ? `${formatted}円` : `¥${formatted}`;
 }
 
 export function formatDate(date: Date, lang: Lang = "en"): string {

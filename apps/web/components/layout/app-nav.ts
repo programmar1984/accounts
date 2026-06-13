@@ -5,6 +5,7 @@ export type NavIconId =
   | "suppliers"
   | "salesOrders"
   | "purchaseOrders"
+  | "serviceOrders"
   | "expenses"
   | "users"
   | "settings";
@@ -20,6 +21,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/", labelKey: "nav.dashboard", icon: "dashboard" },
   { href: "/ledger", labelKey: "nav.ledger", icon: "ledger" },
   { href: "/purchase-orders", labelKey: "nav.purchaseOrders", icon: "purchaseOrders" },
+  { href: "/service-orders", labelKey: "nav.serviceOrders", icon: "serviceOrders" },
   { href: "/sales-orders", labelKey: "nav.salesOrders", icon: "salesOrders" },
   { href: "/expenses", labelKey: "nav.expenses", icon: "expenses" },
   { href: "/customers", labelKey: "nav.customers", icon: "customers" },

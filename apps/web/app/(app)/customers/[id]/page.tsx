@@ -26,7 +26,7 @@ export default async function CustomerDetailPage({
   if (!customer) notFound();
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "42rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar
         title={t("cust.edit")}
         actions={

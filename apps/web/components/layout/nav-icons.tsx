@@ -66,6 +66,19 @@ const ICONS: Record<NavIconId, ReactNode> = {
       <path d="M3 6h18M16 10a4 4 0 0 1-8 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
+  serviceOrders: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M1 3h15v13H1V3zm16 8h4l3 3v5h-7v-8z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  ),
   expenses: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path

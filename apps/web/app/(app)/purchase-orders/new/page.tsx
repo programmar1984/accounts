@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, suppliers } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { createPurchaseOrder } from "@/lib/actions-purchase-orders";
 import { getCompanySettings } from "@/lib/company-settings";
-import { LineItemsEditor } from "@/components/LineItemsEditor";
+import { PoLineItemsEditor } from "@/components/PoLineItemsEditor";
+import { getPoLineDescriptionSuggestions } from "@/lib/po-line-suggestions";
 import type { TaxRate } from "@shime/shared";
 import { PageToolbar } from "@/components/ui/PageToolbar";
 import { ButtonLink } from "@/components/ui/Button";
@@ -25,11 +27,27 @@ export default async function NewPurchaseOrderPage({
   const supplierList = await db.query.suppliers.findMany({
     orderBy: [asc(suppliers.name)],
   });
+  const lineSuggestions = await getPoLineDescriptionSuggestions();
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const lineLabels = {
+    description: t("line.description"),
+    quantity: t("line.qty"),
+    unitPrice: t("line.unitPrice"),
+    taxRate: t("tax.rate"),
+    taxable: t("line.taxable"),
+    nonTaxable: t("line.nonTaxable"),
+    rate: t("line.rate"),
+    rate10: t("tax.rate10"),
+    rate8: t("tax.rate8"),
+    rate0: t("tax.rate0"),
+    add: t("line.add"),
+    remove: t("line.remove"),
+  };
+
   return (
-    <div className="stack-lg" style={{ maxWidth: "48rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar title={t("po.new")} />
       {error === "required" && (
         <Alert variant="danger">{t("po.error.required")}</Alert>
@@ -37,7 +55,7 @@ export default async function NewPurchaseOrderPage({
       <Card>
         <CardBody>
           <form action={createPurchaseOrder} className="stack">
-            <div className="form-grid form-grid-2">
+            <div className="form-grid form-grid-header">
               <div className="form-group">
                 <label className="form-label" htmlFor="supplierId">
                   {t("po.supplier")}
@@ -73,7 +91,18 @@ export default async function NewPurchaseOrderPage({
             </div>
             <div className="form-group">
               <label className="form-label">{t("po.lines")}</label>
-              <LineItemsEditor
+              {!taxable && (
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <Alert variant="info">
+                    {t("po.taxExemptHint")}{" "}
+                    <Link href="/settings/tax">{t("po.taxExemptHintLink")}</Link>
+                  </Alert>
+                </div>
+              )}
+              <PoLineItemsEditor
+                allSuggestions={lineSuggestions}
+                pickSupplierHint={t("po.lineSuggestPickSupplier")}
+                suggestionsLabel={t("line.suggestions")}
                 taxable={taxable}
                 defaultTaxRate={settings.defaultTaxRate as TaxRate}
                 unitPriceLabel={
@@ -81,19 +110,9 @@ export default async function NewPurchaseOrderPage({
                     ? t("tax.exclusive")
                     : taxable
                       ? t("tax.inclusive")
-                      : t("inv.linePrice")
+                      : t("line.unitPrice")
                 }
-                labels={{
-                  description: t("inv.lineDescription"),
-                  quantity: t("inv.lineQty"),
-                  unitPrice: t("inv.linePrice"),
-                  taxRate: t("tax.rate"),
-                  rate10: t("tax.rate10"),
-                  rate8: t("tax.rate8"),
-                  rate0: t("tax.rate0"),
-                  add: t("line.add"),
-                  remove: t("line.remove"),
-                }}
+                labels={lineLabels}
               />
             </div>
             <div className="form-group">
@@ -107,7 +126,7 @@ export default async function NewPurchaseOrderPage({
                 {t("po.create")}
               </button>
               <ButtonLink href="/purchase-orders" variant="muted">
-                {t("tx.cancel")}
+                {t("common.cancel")}
               </ButtonLink>
             </div>
           </form>

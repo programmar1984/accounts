@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { db, purchaseOrders } from "@shime/db";
 import { requireUser } from "@/lib/auth";
+import { applyPoFilter, clearPoFilter } from "@/lib/actions-list-filters";
+import { getPoFilterFromSources, parseDateRange } from "@/lib/list-filters";
 import { getT, type TKey } from "@/lib/i18n";
 import { formatDate, formatYen } from "@shime/shared";
 import { poBadgeVariant } from "@/components/TypeBadge";
@@ -14,25 +17,31 @@ import { Badge } from "@/components/ui/Badge";
 export default async function PurchaseOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; status?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; status?: string }>;
 }) {
   await requireUser();
   const { t, lang } = await getT();
   const params = await searchParams;
-  const year = Number(params.year) || new Date().getUTCFullYear();
-  const status = params.status?.trim() || undefined;
+  const filter = getPoFilterFromSources(params, await cookies());
+  const status = filter.status;
+  const { start, endExclusive, valid } = parseDateRange(filter.from, filter.to);
 
-  const conditions = [
-    gte(purchaseOrders.issueDate, new Date(Date.UTC(year, 0, 1))),
-    lt(purchaseOrders.issueDate, new Date(Date.UTC(year + 1, 0, 1))),
-  ];
+  const conditions = valid
+    ? [
+        gte(purchaseOrders.issueDate, start),
+        lt(purchaseOrders.issueDate, endExclusive),
+      ]
+    : [];
   if (status) conditions.push(eq(purchaseOrders.status, status));
 
-  const list = await db.query.purchaseOrders.findMany({
-    where: and(...conditions),
-    orderBy: [desc(purchaseOrders.issueDate)],
-    with: { supplier: { columns: { name: true, code: true } } },
-  });
+  const list =
+    conditions.length > 0
+      ? await db.query.purchaseOrders.findMany({
+          where: and(...conditions),
+          orderBy: [desc(purchaseOrders.issueDate)],
+          with: { supplier: { columns: { name: true, code: true } } },
+        })
+      : [];
 
   const statuses = ["DRAFT", "POSTED", "VOID", "CANCELLED"] as const;
 
@@ -48,13 +57,22 @@ export default async function PurchaseOrdersPage({
       />
 
       <Card>
-        <form method="GET" className="filter-bar">
+        <form action={applyPoFilter} className="filter-bar">
           <input
-            type="number"
-            name="year"
-            defaultValue={year}
+            type="date"
+            name="from"
+            defaultValue={filter.from}
             className="input"
-            style={{ width: "6rem" }}
+            title={t("filter.dateFrom")}
+            aria-label={t("filter.dateFrom")}
+          />
+          <input
+            type="date"
+            name="to"
+            defaultValue={filter.to}
+            className="input"
+            title={t("filter.dateTo")}
+            aria-label={t("filter.dateTo")}
           />
           <select name="status" defaultValue={status ?? ""} className="select">
             <option value="">{t("tx.allTypes")}</option>
@@ -66,6 +84,9 @@ export default async function PurchaseOrdersPage({
           </select>
           <button type="submit" className="btn btn-muted">
             {t("tx.filter")}
+          </button>
+          <button type="submit" formAction={clearPoFilter} className="btn btn-muted">
+            {t("filter.clear")}
           </button>
         </form>
       </Card>
@@ -93,7 +114,11 @@ export default async function PurchaseOrdersPage({
               {list.map((po) => (
                 <tr key={po.id}>
                   <td style={{ fontWeight: 600 }}>
-                    <Link href={`/purchase-orders/${po.id}`} className="data-row-link">
+                    <Link
+                      href={`/purchase-orders/${po.id}`}
+                      className="data-row-link"
+                      title={po.notes?.trim() || undefined}
+                    >
                       {po.number}
                     </Link>
                   </td>

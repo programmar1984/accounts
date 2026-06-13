@@ -1,9 +1,20 @@
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import PDFDocument from "pdfkit";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { UPLOAD_DIR } from "@/lib/files";
+
+// Resolve from node_modules at runtime — avoids Turbopack rewriting pdfkit's font paths.
+const nodeRequire = createRequire(import.meta.url);
+const PDFDocument = nodeRequire("pdfkit") as typeof import("pdfkit");
 import type { TaxRateBucket } from "@shime/shared";
+
+/** Noto Sans JP — reserved for future bilingual invoice PDFs. */
+export const JP_FONT_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../assets/fonts/NotoSansJP-Regular.ttf"
+);
 
 type InvoicePdfInput = {
   number: string;
@@ -49,7 +60,7 @@ export async function generateInvoicePdf(
     doc.fontSize(14).text(input.companyName);
     if (input.companyAddress) doc.fontSize(10).text(input.companyAddress);
     if (input.registrationNumber) {
-      doc.fontSize(9).text(`登録番号: ${input.registrationNumber}`);
+      doc.fontSize(9).text(`Registration No.: ${input.registrationNumber}`);
     }
     doc.moveDown();
   }
@@ -96,14 +107,17 @@ export async function generateInvoicePdf(
     for (const bucket of input.taxBuckets) {
       if (bucket.exTaxSubtotal === 0) continue;
       doc.text(
-        `${bucket.rate}% 税抜小計: ¥${bucket.exTaxSubtotal.toLocaleString()}  消費税: ¥${bucket.taxAmount.toLocaleString()}`,
+        `${bucket.rate}% subtotal (ex tax): ¥${bucket.exTaxSubtotal.toLocaleString()}  tax: ¥${bucket.taxAmount.toLocaleString()}`,
         { align: "right" }
       );
     }
-    doc.text(`税抜合計: ¥${input.subtotalExTax.toLocaleString()}`, { align: "right" });
-    doc.text(`消費税合計: ¥${input.totalTax.toLocaleString()}`, { align: "right" });
+    doc.text(
+      `Subtotal (ex tax): ¥${input.subtotalExTax.toLocaleString()}`,
+      { align: "right" }
+    );
+    doc.text(`Total tax: ¥${input.totalTax.toLocaleString()}`, { align: "right" });
   }
-  doc.fontSize(12).text(`税込合計: ¥${input.totalAmount.toLocaleString()}`, {
+  doc.fontSize(12).text(`Total: ¥${input.totalAmount.toLocaleString()}`, {
     align: "right",
   });
 

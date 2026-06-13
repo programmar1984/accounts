@@ -9,7 +9,7 @@
 | UI | `app/(app)/sales-orders/*` | Sales orders (Invoice table); issue PDF, payment |
 | UI | `app/(app)/expenses/*` | Expense vouchers; optional supplier, post, attachments |
 | UI | `app/(app)/customers/*` | Customer masters (code shown on ledger) |
-| UI | `app/(app)/suppliers/*` | Supplier masters (code shown on ledger) |
+| UI | `app/(app)/suppliers/*` | Vendor masters (UI: Vendors; code shown on ledger) |
 | UI | `app/(app)/settings/tax/*` | JCT company settings |
 | Actions | `lib/actions-purchase-orders.ts` | PO CRUD, post, void, cancel, payment, attachments |
 | Actions | `lib/actions-invoices.ts` | SO CRUD, issue, void, payment (no transaction on issue) |

@@ -4,7 +4,7 @@
 - **Project Type**: Brownfield
 - **Project Name**: SHIME (締)
 - **Start Date**: 2026-06-10T00:00:00Z
-- **Current Stage**: CONSTRUCTION - Document Model Refactor complete
+- **Current Stage**: CONSTRUCTION - Service Orders (SVO) complete
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -49,6 +49,7 @@
 - [x] UI Shell & Theme — Completed 2026-06-10
 - [x] MVP-2 JCT — Completed 2026-06-10
 - [x] Document Model Refactor (PO/SO/Expenses/Ledger) — Completed 2026-06-10
+- [x] Service Orders (SVO) — Completed 2026-06-10
 - [x] Build and Test — Verified (`pnpm db:migrate`, `pnpm build`)
 - [ ] Production Hardening — Planned (FR-NEXT)
 

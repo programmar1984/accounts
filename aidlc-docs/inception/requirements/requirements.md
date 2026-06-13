@@ -99,11 +99,11 @@ SHIME (締) targets small businesses in Japan with bilingual bookkeeping. The **
 | FR-CUST-02 | Activate/deactivate customers | Implemented |
 | FR-CUST-03 | Link SALE transactions and invoices via customerId | Implemented |
 
-### FR-SUPP: Suppliers
+### FR-SUPP: Vendors (UI label; schema: `Supplier`)
 | ID | Requirement | Status |
 |----|-------------|--------|
-| FR-SUPP-01 | CRUD suppliers (same field pattern as customers) | Implemented |
-| FR-SUPP-02 | Activate/deactivate suppliers | Implemented |
+| FR-SUPP-01 | CRUD vendors (same field pattern as customers) | Implemented |
+| FR-SUPP-02 | Activate/deactivate vendors | Implemented |
 | FR-SUPP-03 | Link PURCHASE transactions and POs via supplierId | Implemented |
 
 ### FR-SO: Sales Orders (evolved from Invoices)

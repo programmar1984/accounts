@@ -17,7 +17,7 @@ export default async function TaxSettingsPage({
   const { saved, error } = await searchParams;
 
   return (
-    <div className="stack-lg" style={{ maxWidth: "40rem", marginInline: "auto" }}>
+    <div className="stack-lg form-page">
       <PageToolbar title={t("settings.jct.title")} />
       {saved && <Alert variant="success">{t("settings.jct.saved")}</Alert>}
       {error && <Alert variant="danger">{t("settings.jct.error")}</Alert>}
