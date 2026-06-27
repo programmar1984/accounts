@@ -31,8 +31,10 @@ context: |
   - Migrations: packages/db/drizzle/migrations/
   - Server actions: apps/web/lib/actions-*.ts
   - Shared UI: apps/web/components/ui/
-  - Requirements source of truth: .planning/REQUIREMENTS.md
-  - Legacy planning docs: aidlc-docs/ (superseded by .planning/ for active work)
+  - Requirements (transitional): .planning/REQUIREMENTS.md — migrate to openspec/specs/ over time
+  - Locked decisions: .planning/intel/decisions.md
+  - Domain reference: Explaination.md (vehicle cost / JCT treatment)
+  - UAT checklist: docs/visual-uat-checklist.md
 
   Commands: pnpm dev | build | lint | db:generate | db:migrate | db:seed | db:studio
 
@@ -53,7 +55,7 @@ rules:
     - Call out auth/role gates (ADMIN vs MEMBER) for new routes or actions
   tasks:
     - Break into verifiable steps; end with pnpm build (and db:migrate if schema changed)
-    - Place app code under apps/web/ or packages/* — not in aidlc-docs/ or openspec/
+    - Place app code under apps/web/ or packages/* — not in openspec/
   specs:
     - Use GIVEN/WHEN/THEN scenarios for behavioral requirements
     - Mark deltas as ADDED, MODIFIED, or REMOVED relative to openspec/specs/

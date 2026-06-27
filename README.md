@@ -39,8 +39,9 @@ The long-term product vision (compliance engine, year-end closing, tax output) i
 apps/web/              @shime/web — Next.js application
 packages/db/           @shime/db — schema, client, migrations, seed
 packages/shared/       @shime/shared — pure utilities
-docs/                  Product vision research
-aidlc-docs/            AI-DLC architecture and requirements
+docs/                  Product vision research and UAT checklists
+openspec/              Spec-driven workflow (specs, changes, config)
+.planning/             Transitional requirements and roadmap (migrating to openspec/specs/)
 ```
 
 ## Getting started
