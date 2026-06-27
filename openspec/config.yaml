@@ -1,0 +1,59 @@
+schema: spec-driven
+
+context: |
+  Project: SHIME — bilingual (EN/JA) accounting and document management for Japanese
+  vehicle export / trading businesses. Brownfield MVP complete; Milestone 2 is production
+  hardening (.planning/REQUIREMENTS.md).
+
+  Monorepo (pnpm workspaces):
+  - apps/web (@shime/web) — Next.js 16 App Router, React 19, Tailwind v4, Server Actions
+  - packages/db (@shime/db) — Drizzle ORM, PostgreSQL, drizzle-kit migrations
+  - packages/shared (@shime/shared) — pure helpers (format, tax, status, line totals)
+
+  Architecture conventions (locked — see .planning/intel/decisions.md):
+  - Mutations via "use server" actions in apps/web/lib/actions-*.ts; pages are RSC
+  - CUID2 string IDs; JPY amounts as integers (no decimals); UTC midnight calendar dates
+  - Auth: jose JWT in httpOnly cookie (7-day TTL); bcryptjs; live DB check for deactivated users
+  - UI: AdminLTE-inspired shell, semantic color tokens, light/dark via shime_theme cookie
+  - i18n: apps/web/lib/i18n.ts; shime_lang cookie; vendor UI label vs Supplier DB table
+
+  Domain modules (implemented):
+  - Customers, Suppliers (vendors), Sales Orders (SO), Purchase Orders (PO), Expenses,
+    Service Orders (SVO), unified Ledger, payment tracking, JCT consumption tax, attachments
+
+  Document lifecycles:
+  - SO: DRAFT → ISSUED (PDF) → VOID
+  - PO/Expense/SVO: DRAFT → POSTED → VOID; posting writes ledger rows (no separate transaction doc)
+  - Numbering: SO/PO/EXP/SVO-YYYY-NNNN
+
+  Key paths:
+  - Schema: packages/db/src/schema.ts
+  - Migrations: packages/db/drizzle/migrations/
+  - Server actions: apps/web/lib/actions-*.ts
+  - Shared UI: apps/web/components/ui/
+  - Requirements source of truth: .planning/REQUIREMENTS.md
+  - Legacy planning docs: aidlc-docs/ (superseded by .planning/ for active work)
+
+  Commands: pnpm dev | build | lint | db:generate | db:migrate | db:seed | db:studio
+
+  When proposing changes:
+  - Prefer extending existing patterns over new abstractions
+  - Keep scope minimal; Milestone 2 items are security, tests, CI, S3 attachments
+  - Respect Japanese tax/accounting domain (JCT, invoice registration, vehicle cost treatment)
+  - Do not add multi-currency or double-entry unless explicitly requested (Milestone 3)
+
+rules:
+  proposal:
+    - Include a Non-goals section for anything explicitly out of scope
+    - Reference existing FR-* IDs from .planning/REQUIREMENTS.md when applicable
+    - Note impact on ledger, JCT aggregates, and bilingual UI (EN + JA)
+  design:
+    - Follow Server Actions + RSC; avoid new client state libraries
+    - Schema changes require Drizzle migration in packages/db/drizzle/migrations/
+    - Call out auth/role gates (ADMIN vs MEMBER) for new routes or actions
+  tasks:
+    - Break into verifiable steps; end with pnpm build (and db:migrate if schema changed)
+    - Place app code under apps/web/ or packages/* — not in aidlc-docs/ or openspec/
+  specs:
+    - Use GIVEN/WHEN/THEN scenarios for behavioral requirements
+    - Mark deltas as ADDED, MODIFIED, or REMOVED relative to openspec/specs/
