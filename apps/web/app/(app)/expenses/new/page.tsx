@@ -2,7 +2,7 @@ import { asc } from "drizzle-orm";
 import { db, suppliers } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
-import { createExpense } from "@/lib/actions-expenses";
+import { createExpense, scanReceiptAndCreateExpense } from "@/lib/actions-expenses";
 import { getCompanySettings } from "@/lib/company-settings";
 import { LineItemsEditor } from "@/components/LineItemsEditor";
 import type { TaxRate } from "@shime/shared";
@@ -20,6 +20,16 @@ export default async function NewExpensePage({
   const { t } = await getT();
   const { error } = await searchParams;
 
+  const scanErrors: Record<string, string> = {
+    scan_required: t("exp.error.scan_required"),
+    scan_type: t("exp.error.scan_type"),
+    scan_size: t("exp.error.scan_size"),
+    scan_lmstudio: t("exp.error.scan_lmstudio"),
+    scan_parse: t("exp.error.scan_parse"),
+    scan_ai: t("exp.error.scan_ai"),
+    scan_empty: t("exp.error.scan_empty"),
+  };
+
   const settings = await getCompanySettings();
   const taxable = settings.jctStatus === "TAXABLE";
   const supplierList = await db.query.suppliers.findMany({
@@ -32,6 +42,23 @@ export default async function NewExpensePage({
     <div className="stack-lg form-page">
       <PageToolbar title={t("exp.new")} />
       {error === "required" && <Alert variant="danger">{t("exp.error.required")}</Alert>}
+      {error && error !== "required" && scanErrors[error] && (
+        <Alert variant="danger">{scanErrors[error]}</Alert>
+      )}
+      <Card>
+        <CardBody>
+          <form action={scanReceiptAndCreateExpense} className="stack" encType="multipart/form-data">
+            <h2 className="section-title">{t("exp.scan.title")}</h2>
+            <p className="muted">{t("exp.scan.hint")}</p>
+            <div className="form-group">
+              <input name="receipt" type="file" accept="image/*,application/pdf" required className="input" />
+            </div>
+            <button type="submit" className="btn btn-primary">
+              {t("exp.scan.submit")}
+            </button>
+          </form>
+        </CardBody>
+      </Card>
       <Card>
         <CardBody>
           <form action={createExpense} className="stack">

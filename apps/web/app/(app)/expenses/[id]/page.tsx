@@ -3,7 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, expenseLines, expenses, suppliers } from "@shime/db";
 import { requireUser } from "@/lib/auth";
 import { getT, type TKey } from "@/lib/i18n";
-import { formatBytes, formatDate, formatYen } from "@shime/shared";
+import { formatBytes, formatDate, formatYen, expenseCategoryLabel, type ExpenseCategory } from "@shime/shared";
 import {
   addExpenseAttachments,
   deleteExpenseAttachment,
@@ -27,12 +27,12 @@ export default async function ExpenseDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; posted?: string; payment?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; posted?: string; payment?: string; scanned?: string; error?: string }>;
 }) {
   await requireUser();
   const { t, lang } = await getT();
   const { id } = await params;
-  const { saved, posted, payment, error } = await searchParams;
+  const { saved, posted, payment, scanned, error } = await searchParams;
 
   const settings = await getCompanySettings();
   const taxable = settings.jctStatus === "TAXABLE";
@@ -66,6 +66,7 @@ export default async function ExpenseDetailPage({
       />
 
       {saved && <Alert variant="success">{t("exp.saved")}</Alert>}
+      {scanned && <Alert variant="success">{t("exp.scanned")}</Alert>}
       {posted && <Alert variant="success">{t("exp.posted")}</Alert>}
       {payment && <Alert variant="success">{t("exp.paymentUpdated")}</Alert>}
       {error === "payment" && <Alert variant="danger">{t("exp.error.payment")}</Alert>}
@@ -129,6 +130,12 @@ export default async function ExpenseDetailPage({
                 <label className="form-label">{t("exp.description")}</label>
                 <input name="description" type="text" defaultValue={exp.description} className="input" />
               </div>
+              {exp.category && (
+                <p className="muted">
+                  {t("exp.category")}:{" "}
+                  {expenseCategoryLabel(exp.category as ExpenseCategory, lang)}
+                </p>
+              )}
               <div className="form-group">
                 <label className="form-label">{t("exp.lines")}</label>
                 <LineItemsEditor

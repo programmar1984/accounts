@@ -29,6 +29,16 @@ export {
   canPostExpense,
   canVoidExpense,
 } from "./expense/status";
+export {
+  EXPENSE_CATEGORIES,
+  type ExpenseCategory,
+  parseExpenseCategory,
+  expenseCategoryLabel,
+} from "./expense/categories";
+export {
+  mergeSmallReceiptLines,
+  type RawReceiptLine,
+} from "./expense/receipt-lines";
 export { lineTotal } from "./line-total";
 export { createId } from "./id";
 export {

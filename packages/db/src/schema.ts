@@ -293,6 +293,7 @@ export const expenses = pgTable(
     expenseDate: timestamp("expenseDate", { mode: "date" }).notNull(),
     supplierId: text("supplierId").references(() => suppliers.id),
     description: text("description").notNull().default(""),
+    category: text("category"),
     notes: text("notes"),
     status: text("status").notNull().default("DRAFT"),
     subtotalExTax: integer("subtotalExTax").notNull().default(0),

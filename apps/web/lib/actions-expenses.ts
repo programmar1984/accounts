@@ -21,6 +21,14 @@ import { requireUser } from "./auth";
 import { getCompanySettings } from "./company-settings";
 import { deleteUpload, isAllowedMimeType, MAX_FILE_SIZE, saveUpload } from "./files";
 import { parseDocumentLines, summarizeDocumentLines } from "./tax-helpers";
+import {
+  extractReceiptFromImage,
+  parseReceiptExpenseDate,
+} from "./receipt-extract";
+import {
+  buildExpenseLinesFromReceipt,
+  receiptHeaderDescription,
+} from "./receipt-to-expense";
 
 function parseExpenseDates(formData: FormData) {
   const dateStr = String(formData.get("expenseDate") ?? "");
@@ -89,6 +97,104 @@ export async function createExpense(formData: FormData) {
   revalidatePath("/expenses");
   revalidatePath("/ledger");
   redirect(`/expenses/${expenseId}?saved=1`);
+}
+
+export async function scanReceiptAndCreateExpense(formData: FormData) {
+  const session = await requireUser();
+  const settings = await getCompanySettings();
+
+  const file = formData.get("receipt");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/expenses/new?error=scan_required");
+  }
+  if (!isAllowedMimeType(file.type)) {
+    redirect("/expenses/new?error=scan_type");
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    redirect("/expenses/new?error=scan_size");
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  let extraction;
+  try {
+    extraction = await extractReceiptFromImage(buffer, file.type);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "LM_STUDIO_UNREACHABLE") {
+      redirect("/expenses/new?error=scan_lmstudio");
+    }
+    if (message.startsWith("LM_STUDIO_ERROR")) {
+      redirect("/expenses/new?error=scan_lmstudio");
+    }
+    if (message === "PARSE_FAILED" || message === "EMPTY_MODEL_RESPONSE") {
+      redirect("/expenses/new?error=scan_parse");
+    }
+    redirect("/expenses/new?error=scan_ai");
+  }
+
+  const lines = buildExpenseLinesFromReceipt(extraction, settings);
+  if (lines.length === 0) {
+    redirect("/expenses/new?error=scan_empty");
+  }
+
+  const summary = summarizeDocumentLines(lines, settings);
+  const expenseDate = parseReceiptExpenseDate(extraction.date);
+  const year = expenseDate.getUTCFullYear();
+  const number = await nextExpenseNumber(year);
+  const expenseId = createId();
+  const description = receiptHeaderDescription(extraction, extraction.category);
+  const notes =
+    extraction.confidence && extraction.confidence !== "high"
+      ? `Receipt scan confidence: ${extraction.confidence}`
+      : null;
+
+  const saved = await saveUpload(file);
+
+  await db.insert(expenses).values({
+    id: expenseId,
+    number,
+    expenseDate,
+    supplierId: null,
+    description,
+    category: extraction.category,
+    notes,
+    status: "DRAFT",
+    subtotalExTax: summary.subtotalExTax,
+    totalTax: summary.totalTax,
+    totalAmount: summary.totalAmount,
+    dueDate: null,
+    createdById: session.userId,
+  });
+
+  await db.insert(expenseLines).values(
+    lines.map((line, i) => ({
+      id: createId(),
+      expenseId,
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      lineTotal: line.lineTotal,
+      taxRate: line.taxRate,
+      taxAmount: line.taxAmount,
+      lineTotalExTax: line.lineTotalExTax,
+      sortOrder: i,
+    }))
+  );
+
+  await db.insert(attachments).values({
+    id: createId(),
+    expenseId,
+    transactionId: null,
+    purchaseOrderId: null,
+    serviceOrderId: null,
+    ...saved,
+    uploadedById: session.userId,
+  });
+
+  revalidatePath("/expenses");
+  revalidatePath("/ledger");
+  redirect(`/expenses/${expenseId}?scanned=1`);
 }
 
 export async function updateExpense(formData: FormData) {
