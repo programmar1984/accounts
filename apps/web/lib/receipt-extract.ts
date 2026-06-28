@@ -39,7 +39,8 @@ function getLmStudioConfig() {
   const baseUrl = process.env.LMSTUDIO_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:1234/v1";
   const model = process.env.RECEIPT_AI_MODEL ?? "qwen/qwen2.5-vl-7b";
   const mergeThreshold = Number(process.env.RECEIPT_MERGE_THRESHOLD ?? "1000");
-  return { baseUrl, model, mergeThreshold };
+  const timeoutMs = Number(process.env.RECEIPT_AI_TIMEOUT_MS ?? "300000");
+  return { baseUrl, model, mergeThreshold, timeoutMs };
 }
 
 function parseJsonFromModelText(text: string): unknown {
@@ -87,7 +88,7 @@ export async function extractReceiptFromImage(
   buffer: Buffer,
   mimeType: string
 ): Promise<ReceiptExtraction> {
-  const { baseUrl, model } = getLmStudioConfig();
+  const { baseUrl, model, timeoutMs } = getLmStudioConfig();
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
@@ -99,6 +100,7 @@ export async function extractReceiptFromImage(
       body: JSON.stringify({
         model,
         temperature: 0.1,
+        max_tokens: 2048,
         messages: [
           {
             role: "user",
@@ -109,9 +111,12 @@ export async function extractReceiptFromImage(
           },
         ],
       }),
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("LM_STUDIO_TIMEOUT");
+    }
     throw new Error("LM_STUDIO_UNREACHABLE");
   }
 

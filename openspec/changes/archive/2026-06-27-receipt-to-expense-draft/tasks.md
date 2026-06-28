@@ -24,4 +24,4 @@
 
 - [x] 5.1 Document `LMSTUDIO_BASE_URL`, `RECEIPT_AI_MODEL`, `RECEIPT_MERGE_THRESHOLD` in `.env.example`
 - [x] 5.2 Run `pnpm build`
-- [ ] 5.3 Manual test: LM Studio running → scan konbini receipt → review DRAFT → post → verify ledger row
+- [x] 5.3 Manual test: LM Studio running → scan konbini receipt → review DRAFT → post → verify ledger row

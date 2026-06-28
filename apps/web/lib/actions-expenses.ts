@@ -124,6 +124,9 @@ export async function scanReceiptAndCreateExpense(formData: FormData) {
     if (message === "LM_STUDIO_UNREACHABLE") {
       redirect("/expenses/new?error=scan_lmstudio");
     }
+    if (message === "LM_STUDIO_TIMEOUT") {
+      redirect("/expenses/new?error=scan_timeout");
+    }
     if (message.startsWith("LM_STUDIO_ERROR")) {
       redirect("/expenses/new?error=scan_lmstudio");
     }

@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n";
 import { createExpense, scanReceiptAndCreateExpense } from "@/lib/actions-expenses";
 import { getCompanySettings } from "@/lib/company-settings";
 import { LineItemsEditor } from "@/components/LineItemsEditor";
+import { ReceiptScanForm } from "@/components/ReceiptScanForm";
 import type { TaxRate } from "@shime/shared";
 import { PageToolbar } from "@/components/ui/PageToolbar";
 import { ButtonLink } from "@/components/ui/Button";
@@ -28,6 +29,7 @@ export default async function NewExpensePage({
     scan_parse: t("exp.error.scan_parse"),
     scan_ai: t("exp.error.scan_ai"),
     scan_empty: t("exp.error.scan_empty"),
+    scan_timeout: t("exp.error.scan_timeout"),
   };
 
   const settings = await getCompanySettings();
@@ -47,16 +49,15 @@ export default async function NewExpensePage({
       )}
       <Card>
         <CardBody>
-          <form action={scanReceiptAndCreateExpense} className="stack" encType="multipart/form-data">
-            <h2 className="section-title">{t("exp.scan.title")}</h2>
-            <p className="muted">{t("exp.scan.hint")}</p>
-            <div className="form-group">
-              <input name="receipt" type="file" accept="image/*,application/pdf" required className="input" />
-            </div>
-            <button type="submit" className="btn btn-primary">
-              {t("exp.scan.submit")}
-            </button>
-          </form>
+          <ReceiptScanForm
+            action={scanReceiptAndCreateExpense}
+            title={t("exp.scan.title")}
+            hint={t("exp.scan.hint")}
+            preparingLabel={t("exp.scan.preparing")}
+            scanningLabel={t("exp.scan.scanning")}
+            scanningHint={t("exp.scan.scanningHint")}
+            submitLabel={t("exp.scan.submit")}
+          />
         </CardBody>
       </Card>
       <Card>
